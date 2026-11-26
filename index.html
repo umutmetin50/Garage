@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.3</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.4</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -190,6 +190,8 @@
         <label class="form-label">Google Gemini Key</label>
         <input type="password" id="input-api-key" class="form-input" placeholder="AIzaSy...">
       </div>
+      <button type="button" class="btn-action" style="width:100%;" id="btn-test-ai" onclick="testAiConnection()"><i class="ph-bold ph-pulse"></i> Verbindung testen</button>
+      <div id="key-test-result" style="display:none; margin-top:12px; font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-word; background:rgba(0,0,0,0.4); border:1px solid var(--glass-border); border-radius:12px; padding:12px;"></div>
       <div class="modal-btns">
         <button class="btn-cancel" onclick="closeKeyModal()">Schließen</button>
         <button class="btn-save" id="btn-save-key" onclick="saveApiKey()">Speichern</button>
@@ -450,8 +452,9 @@ const STORAGE_KEY = "garage_ai_pro_glass_v9";
 const API_KEY_STORAGE = "gemini_api_key_v1";
 const THEME_STORAGE = "app_theme";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const AI_TIMEOUT_MS = 50000;          // max. Wartezeit pro KI-Anfrage
+const AI_TIMEOUT_MS = 45000;          // max. Wartezeit pro Modell-Versuch
 const AI_MAX_MODEL_TRIES = 3;          // höchstens 3 Modelle nacheinander probieren
+const AI_SEARCH_TIMEOUT_MS = 35000;   // max. Wartezeit für die Internetsuche
 const LOG_TYPES = ["Wartung", "Reparatur", "Karosserie/Lack", "Teiletausch", "Fixkosten"];
 const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
 const EXCLUDE_MODEL_RE = /(image|tts|live|audio|embed|imagen|veo|robotics|computer|aqa|gemma|learnlm|nano|banana|exp)/i;
@@ -628,7 +631,7 @@ let activeIntervalId = null; let editingIntervalId = null;
 let tempUploadedPhotosBase64 = [];
 let pendingAiVehicleData = null; let pendingAiCandidates = null;
 let chartCategoryInstance = null; let chartMonthlyInstance = null;
-let cachedModels = null; let aiController = null; let aiUserCancelled = false;
+let cachedModels = null; let aiUserCancelled = false; const aiActiveControllers = new Set(); let lastAiInfo = null;
 let kbaDatabaseCache = null;
 
 let cropRawImage = null; let cropZoom = 1; let cropPanX = 0; let cropPanY = 0; let isDraggingCrop = false; let cropStartX = 0; let cropStartY = 0;
@@ -671,6 +674,43 @@ function showLoading(text, title) {
 function hideLoading() { document.getElementById("ai-loading").classList.remove("open"); }
 
 function openKeyModal() { document.getElementById("input-api-key").value = apiKey; document.getElementById("modal-key").classList.add("open"); }
+async function testAiConnection() {
+  const input = document.getElementById("input-api-key").value.trim();
+  const box = document.getElementById("key-test-result");
+  const btn = document.getElementById("btn-test-ai");
+  box.style.display = "block";
+  if (!input) { box.textContent = "❌ Bitte zuerst einen API-Key eingeben."; return; }
+  apiKey = input; lsSet(API_KEY_STORAGE, apiKey); updateKeyIndicator();
+  cachedModels = null;
+  btn.disabled = true;
+  const lines = [];
+  const show = () => { box.textContent = lines.join("\n"); };
+  try {
+    lines.push("⏳ Lade Modellliste..."); show();
+    const t0 = Date.now();
+    const models = await getModelCandidates();
+    lines[lines.length - 1] = "✅ Modelle (" + ((Date.now() - t0) / 1000).toFixed(1) + " s): " + models.slice(0, AI_MAX_MODEL_TRIES).join(", ");
+    lines.push("⏳ Test 1: KI-Antwort ohne Internet..."); show();
+    try {
+      await executeGeminiRequest({ contents: [{ parts: [{ text: "Antworte nur mit dem Wort OK." }] }] }, 30000, AI_MAX_MODEL_TRIES);
+      lines[lines.length - 1] = "✅ Test 1 OK: " + lastAiInfo.model + " in " + lastAiInfo.sec + " s";
+    } catch (e) { lines[lines.length - 1] = "❌ Test 1 fehlgeschlagen: " + e.message; }
+    lines.push("⏳ Test 2: KI mit Google-Internetsuche..."); show();
+    try {
+      const res = await executeGeminiRequest({
+        contents: [{ parts: [{ text: "Wie viel PS hat ein Ford S-Max 2.2 TDCi? Antworte in einem kurzen Satz." }] }],
+        tools: [{ google_search: {} }]
+      }, AI_SEARCH_TIMEOUT_MS, 1);
+      const n = extractSearchSources(res).length;
+      lines[lines.length - 1] = "✅ Test 2 OK: " + lastAiInfo.model + " in " + lastAiInfo.sec + " s, " + n + " Quelle(n)";
+    } catch (e) { lines[lines.length - 1] = "❌ Test 2 fehlgeschlagen: " + e.message; }
+  } catch (e) {
+    lines.push("❌ Fehler: " + e.message);
+  } finally {
+    btn.disabled = false;
+    show();
+  }
+}
 function closeKeyModal() { document.getElementById("modal-key").classList.remove("open"); }
 async function saveApiKey() {
   const testKey = document.getElementById("input-api-key").value.trim();
@@ -685,54 +725,86 @@ function updateKeyIndicator() {
   else { ind.className = "btn-key"; ind.innerHTML = '<i class="ph ph-key"></i> API-Key'; }
 }
 
-async function getModelCandidates(signal) {
+// fetch mit eigenem Zeitlimit pro Versuch (inkl. Lesen der Antwort)
+async function fetchJsonWithTimeout(url, opts, ms) {
+  const c = new AbortController();
+  aiActiveControllers.add(c);
+  let timedOut = false;
+  const t = setTimeout(() => { timedOut = true; c.abort(); }, ms);
+  try {
+    const resp = await fetch(url, Object.assign({}, opts, { signal: c.signal }));
+    let data = null;
+    try { data = await resp.json(); } catch (e) { if (e && e.name === "AbortError") throw e; }
+    return { ok: resp.ok, status: resp.status, data: data };
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      if (aiUserCancelled) throw new Error("Abgebrochen.");
+      if (timedOut) { const x = new Error("Zeitüberschreitung"); x.isTimeout = true; throw x; }
+    }
+    throw e;
+  } finally {
+    clearTimeout(t);
+    aiActiveControllers.delete(c);
+  }
+}
+
+async function getModelCandidates() {
   if (cachedModels && cachedModels.length) return cachedModels;
   let list = [];
   try {
-    const resp = await fetch(GEMINI_BASE + "/models?pageSize=1000&key=" + encodeURIComponent(apiKey), { signal: signal });
-    if (resp.ok) {
-      const data = await resp.json();
-      const names = (data.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => str(m.name).replace(/^models\//, ""));
+    const r = await fetchJsonWithTimeout(GEMINI_BASE + "/models?pageSize=1000&key=" + encodeURIComponent(apiKey), {}, 10000);
+    if (r.ok && r.data) {
+      const names = (r.data.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => str(m.name).replace(/^models\//, ""));
       list = rankGeminiModels(names);
     }
-  } catch (e) { }
+  } catch (e) { if (aiUserCancelled) throw e; }
   if (!list.length) list = FALLBACK_MODELS.slice();
   cachedModels = list;
   return list;
 }
 
-function cancelAiRequest() { aiUserCancelled = true; if (aiController) aiController.abort(); hideLoading(); }
+// Langes "Nachdenken" der neuen Modelle abschalten bzw. reduzieren -> deutlich schnellere Antworten
+function thinkingConfigFor(model) {
+  if (/^gemini-2\.5-flash/.test(model)) return { thinkingBudget: 0 };
+  if (/^gemini-[3-9]/.test(model)) return { thinkingLevel: "low" };
+  return null;
+}
 
-async function executeGeminiRequest(bodyPayload, timeoutMs) {
+function cancelAiRequest() { aiUserCancelled = true; aiActiveControllers.forEach(c => c.abort()); hideLoading(); }
+
+async function executeGeminiRequest(bodyPayload, perTryMs, maxTries) {
   aiUserCancelled = false;
-  const controller = new AbortController();
-  aiController = controller;
-  let timedOut = false;
-  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs || AI_TIMEOUT_MS);
-  try {
-    const candidates = (await getModelCandidates(controller.signal)).slice(0, AI_MAX_MODEL_TRIES);
-    let lastError = null;
-    for (const model of candidates) {
-      const resp = await fetch(GEMINI_BASE + "/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey), {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bodyPayload), signal: controller.signal
-      });
-      let data = null;
-      try { data = await resp.json(); } catch (e) { }
-      if (resp.ok && data) return data;
-      lastError = (data && data.error && data.error.message) || ("HTTP " + resp.status);
-      if (resp.status === 400 && /api key/i.test(lastError)) throw new Error("Der API-Key ist ungültig. Bitte oben rechts prüfen.");
+  const timeout = perTryMs || AI_TIMEOUT_MS;
+  const models = (await getModelCandidates()).slice(0, maxTries || AI_MAX_MODEL_TRIES);
+  const problems = [];
+  for (const model of models) {
+    let useThinking = true;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const payload = JSON.parse(JSON.stringify(bodyPayload));
+      const tc = useThinking ? thinkingConfigFor(model) : null;
+      if (tc) payload.generationConfig = Object.assign({}, payload.generationConfig || {}, { thinkingConfig: tc });
+      const t0 = Date.now();
+      let r;
+      try {
+        r = await fetchJsonWithTimeout(GEMINI_BASE + "/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey), {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        }, timeout);
+      } catch (e) {
+        if (e.isTimeout) { problems.push(model + ": keine Antwort nach " + Math.round(timeout / 1000) + " s"); break; }
+        throw e;
+      }
+      const sec = ((Date.now() - t0) / 1000).toFixed(1);
+      if (r.ok && r.data) { lastAiInfo = { model: model, sec: sec }; return r.data; }
+      const msg = (r.data && r.data.error && r.data.error.message) || ("HTTP " + r.status);
+      if (/api key not valid|API_KEY_INVALID/i.test(msg)) throw new Error("Der API-Key ist ungültig. Bitte oben rechts prüfen.");
+      // Modell kennt die Denk-Einstellung nicht -> gleiches Modell ohne nochmal versuchen
+      if (r.status === 400 && tc && /thinking/i.test(msg)) { useThinking = false; continue; }
+      if (r.status === 429) problems.push(model + ": Tageslimit/Anfragelimit erreicht");
+      else problems.push(model + ": " + msg.slice(0, 140));
+      break;
     }
-    throw new Error(lastError || "Verbindung fehlgeschlagen.");
-  } catch (e) {
-    if (e && e.name === "AbortError") {
-      if (aiUserCancelled) throw new Error("Abgebrochen.");
-      if (timedOut) { const t = new Error("Zeitüberschreitung: Die KI hat zu lange gebraucht."); t.isTimeout = true; throw t; }
-    }
-    throw e;
-  } finally {
-    clearTimeout(timer);
-    if (aiController === controller) aiController = null;
   }
+  throw new Error(problems.length ? "\n• " + problems.join("\n• ") : "Verbindung fehlgeschlagen.");
 }
 
 async function callAiJson(payload) {
@@ -762,7 +834,7 @@ async function callAiJsonWithSearch(promptText) {
     const resData = await executeGeminiRequest({
       contents: [{ parts: [{ text: promptText + "\n\nWICHTIG: Prüfe die Angaben vorher mit der Google-Suche anhand seriöser Quellen (Hersteller, Fachportale, Teilehändler). Antworte am Ende NUR mit dem JSON-Objekt, ohne weiteren Text." }] }],
       tools: [{ google_search: {} }]
-    });
+    }, AI_SEARCH_TIMEOUT_MS, 1);
     const parsed = safeParseJSON(extractGeminiText(resData));
     if (!parsed.error) {
       parsed._sources = extractSearchSources(resData);
