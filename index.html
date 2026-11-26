@@ -731,6 +731,48 @@ async function callAiJson(payload) {
   return safeParseJSON(extractGeminiText(resData));
 }
 
+// Quellen (Webseiten), die Gemini bei der Google-Suche benutzt hat
+function extractSearchSources(resData) {
+  const cand = resData && resData.candidates && resData.candidates[0];
+  const chunks = (cand && cand.groundingMetadata && cand.groundingMetadata.groundingChunks) || [];
+  const seen = {}, out = [];
+  chunks.forEach(c => {
+    if (!c || !c.web || !c.web.uri) return;
+    const title = str(c.web.title || c.web.uri).trim();
+    if (seen[title]) return;
+    seen[title] = true;
+    out.push({ title: title, uri: str(c.web.uri) });
+  });
+  return out.slice(0, 5);
+}
+
+// KI-Anfrage MIT Google-Internetsuche. Fällt automatisch auf die normale Anfrage zurück,
+// falls die Suche nicht verfügbar ist (z. B. Tageslimit erreicht).
+async function callAiJsonWithSearch(promptText) {
+  try {
+    const resData = await executeGeminiRequest({
+      contents: [{ parts: [{ text: promptText + "\n\nWICHTIG: Prüfe die Angaben vorher mit der Google-Suche anhand seriöser Quellen (Hersteller, Fachportale, Teilehändler). Antworte am Ende NUR mit dem JSON-Objekt, ohne weiteren Text." }] }],
+      tools: [{ google_search: {} }]
+    });
+    const parsed = safeParseJSON(extractGeminiText(resData));
+    if (!parsed.error) {
+      parsed._sources = extractSearchSources(resData);
+      parsed._withSearch = true;
+      return parsed;
+    }
+  } catch (e) {
+    if (aiUserCancelled) throw e;
+    console.warn("Internetsuche nicht möglich, nutze KI-Wissen:", e);
+  }
+  const fallback = await callAiJson({
+    contents: [{ parts: [{ text: promptText }] }],
+    generationConfig: { responseMimeType: "application/json" }
+  });
+  fallback._sources = [];
+  fallback._withSearch = false;
+  return fallback;
+}
+
 // =====================================================================
 // KBA-DATENBANKABGLEICH (kba_db.json)
 // =====================================================================
@@ -779,7 +821,7 @@ async function fetchKfzFromKba(hsn, tsn) {
 }
 
 async function fetchSpecsForVehicle(vehCandidate, hsn, tsn) {
-  showLoading(`Lade Wartungsdaten für ${vehCandidate.name}...`, "Stufe 2/2: KI-Wartungsplan");
+  showLoading(`Suche Wartungsdaten für ${vehCandidate.name} im Internet...`, "Stufe 2/2: KI-Wartungsplan");
 
   const prompt = `Du bist ein Kfz-Meister. Erstelle die herstellerspezifischen Wartungsdaten und Füllmengen für dieses exakt ausgewählte Fahrzeug:
 Fahrzeugmodell: ${vehCandidate.name}
@@ -811,11 +853,7 @@ Antworte AUSSCHLIESSLICH im validen JSON-Format:
   ]
 }`;
 
-  // KORREKTUR: responseMimeType in CamelCase
-  return await callAiJson({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { responseMimeType: "application/json" }
-  });
+  return await callAiJsonWithSearch(prompt);
 }
 
 async function lookupVehicleOptionA() {
@@ -834,7 +872,7 @@ async function lookupVehicleOptionA() {
     return;
   }
 
-  showLoading("Ermittle Modell & Karosserievarianten...", "Stufe 1/2: Abgleich");
+  showLoading("Suche im Internet nach Modell & Motorisierung...", "Stufe 1/2: Abgleich");
 
   try {
     let kbaMatch = "";
@@ -869,11 +907,7 @@ Antworte AUSSCHLIESSLICH im validen JSON-Format:
   ]
 }`;
 
-    // KORREKTUR: responseMimeType in CamelCase
-    const parsedVariants = await callAiJson({
-      contents: [{ parts: [{ text: variantPrompt }] }],
-      generationConfig: { responseMimeType: "application/json" }
-    });
+    const parsedVariants = await callAiJsonWithSearch(variantPrompt);
 
     const candidates = (parsedVariants && Array.isArray(parsedVariants.candidates) && parsedVariants.candidates.length > 0)
       ? parsedVariants.candidates
@@ -907,7 +941,7 @@ async function searchVehicleByText() {
   if (!query) { alert("Bitte gib ein, was du über das Fahrzeug weißt, z. B. Marke, Modell und Baujahr."); return; }
   if (!apiKey) { alert("Bitte trage zuerst oben rechts über 'API-Key' deinen Gemini-Key ein!"); openKeyModal(); return; }
 
-  showLoading("Suche passende Fahrzeuge...", "KI-Fahrzeugsuche");
+  showLoading("Suche im Internet nach passenden Fahrzeugen...", "KI-Fahrzeugsuche");
   try {
     const searchPrompt = `Du bist ein Kfz-Experte für den deutschen Automarkt.
 Der Nutzer beschreibt sein Fahrzeug mit diesen Stichworten: ${JSON.stringify(query)}
@@ -930,10 +964,7 @@ Antworte AUSSCHLIESSLICH im validen JSON-Format:
   ]
 }`;
 
-    const parsed = await callAiJson({
-      contents: [{ parts: [{ text: searchPrompt }] }],
-      generationConfig: { responseMimeType: "application/json" }
-    });
+    const parsed = await callAiJsonWithSearch(searchPrompt);
 
     const candidates = (parsed && Array.isArray(parsed.candidates) ? parsed.candidates : [])
       .filter(c => isPlainObject(c) && str(c.name).trim())
@@ -1020,7 +1051,14 @@ function showAiPreview(p) {
     ? `<div style="margin-top:10px;"><button type="button" class="btn-action" style="padding:6px 12px; font-size:11px;" onclick="document.getElementById('modal-nv-candidates').classList.add('open')"><i class="ph-bold ph-arrows-clockwise"></i> Andere Ausführung wählen</button></div>`
     : '';
 
-  box.innerHTML = `<div style="color:var(--green); font-weight:700; margin-bottom:6px;">✅ Verifiziert per KBA & KI</div>
+  const srcList = Array.isArray(p._sources) ? p._sources : [];
+  const header = p._withSearch
+    ? `<div style="color:var(--green); font-weight:700; margin-bottom:6px;">✅ Per KI mit Internetsuche ermittelt</div>`
+    : `<div style="color:var(--orange); font-weight:700; margin-bottom:6px;">⚠️ Ohne Internetsuche ermittelt – bitte Angaben prüfen</div>`;
+  const srcHtml = srcList.length
+    ? `<br><br><strong>Quellen:</strong><br>` + srcList.map(s => `<a href="${esc(s.uri)}" target="_blank" rel="noopener" style="color:var(--primary);">${esc(s.title)}</a>`).join("<br>")
+    : "";
+  box.innerHTML = header + `
     <strong>Modell:</strong> ${esc(p.name || "-")}<br>
     <strong>Motorisierung:</strong> ${esc(p.sub || "-")} (${esc(p.fuelType || "-")})<br><br>
     <strong>Spezifikationen:</strong><br>
@@ -1029,6 +1067,7 @@ function showAiPreview(p) {
     Batterie: ${esc(p.battery || "-")}<br>
     Reifen: ${esc(p.tireSizeSummer || "-")}<br><br>
     <strong>Wartungsintervalle:</strong><br>${ints || "Standard-Intervalle"}
+    ${srcHtml}
     ${changeBtn}`;
   box.style.display = "block";
 }
