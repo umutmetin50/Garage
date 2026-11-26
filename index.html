@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.4</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.5</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -452,7 +452,7 @@ const STORAGE_KEY = "garage_ai_pro_glass_v9";
 const API_KEY_STORAGE = "gemini_api_key_v1";
 const THEME_STORAGE = "app_theme";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const AI_TIMEOUT_MS = 45000;          // max. Wartezeit pro Modell-Versuch
+const AI_TIMEOUT_MS = 25000;          // max. Wartezeit pro Modell-Versuch
 const AI_MAX_MODEL_TRIES = 3;          // höchstens 3 Modelle nacheinander probieren
 const AI_SEARCH_TIMEOUT_MS = 35000;   // max. Wartezeit für die Internetsuche
 const LOG_TYPES = ["Wartung", "Reparatur", "Karosserie/Lack", "Teiletausch", "Fixkosten"];
@@ -592,7 +592,11 @@ function rankGeminiModels(names) {
     else if (/flash/.test(n)) rest.push(n);
   });
   scored.sort((a, b) => b.s - a.s);
-  return scored.map(x => x.n).concat(rest);
+  const ordered = scored.map(x => x.n).concat(rest);
+  // Ein "Lite"-Modell als 2. Wahl nach vorne holen: weniger ausgelastet und sehr schnell
+  const liteIdx = ordered.findIndex((n, i) => i > 0 && /flash-lite/.test(n));
+  if (liteIdx > 1) ordered.splice(1, 0, ordered.splice(liteIdx, 1)[0]);
+  return ordered;
 }
 
 function safeParseJSON(text) {
@@ -799,7 +803,9 @@ async function executeGeminiRequest(bodyPayload, perTryMs, maxTries) {
       if (/api key not valid|API_KEY_INVALID/i.test(msg)) throw new Error("Der API-Key ist ungültig. Bitte oben rechts prüfen.");
       // Modell kennt die Denk-Einstellung nicht -> gleiches Modell ohne nochmal versuchen
       if (r.status === 400 && tc && /thinking/i.test(msg)) { useThinking = false; continue; }
-      if (r.status === 429) problems.push(model + ": Tageslimit/Anfragelimit erreicht");
+      if ((r.status === 503 || /high demand|overloaded/i.test(msg)) && attempt === 0) { await new Promise(w => setTimeout(w, 1500)); if (aiUserCancelled) throw new Error("Abgebrochen."); continue; }
+      if (r.status === 503 || /high demand|overloaded/i.test(msg)) { problems.push(model + ": bei Google gerade überlastet"); break; }
+      if (r.status === 429) problems.push(model + ": Limit deines kostenlosen Google-Kontos erreicht");
       else problems.push(model + ": " + msg.slice(0, 140));
       break;
     }
