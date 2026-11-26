@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#07080d">
+  <title>Garage AI Pro - True Glass Edition</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web@2"></script>
+
+  <style>
+    :root {
+      --glass-bg: rgba(255, 255, 255, 0.05);
+      --glass-bg-card: rgba(22, 24, 38, 0.55);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --glass-border-light: rgba(255, 255, 255, 0.22);
+      --glass-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.45);
+      --text-main: #ffffff;
+      --text-muted: #9499ad;
+      --primary: #0a84ff; 
+      --primary-fade: rgba(10, 132, 255, 0.22);
+      --green: #32d74b;
+      --red: #ff453a;
+      --orange: #ff9f0a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    body { background: #07080d; color: var(--text-main); padding: max(16px, env(safe-area-inset-top)) 16px calc(115px + env(safe-area-inset-bottom)) 16px; min-height: 100vh; position: relative; overflow-x: hidden; }
+    .bg-glow { position: fixed; width: 320px; height: 320px; border-radius: 50%; filter: blur(90px); z-index: -1; opacity: 0.35; pointer-events: none; }
+    .glow-1 { top: -60px; left: -60px; background: #0a84ff; }
+    .glow-2 { top: 40%; right: -80px; background: #bf5af2; opacity: 0.25; }
+    .glow-3 { bottom: 10%; left: -40px; background: #32d74b; opacity: 0.18; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-top: 8px; }
+    .app-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+    .btn-key { background: var(--glass-bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); color: var(--text-muted); padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: var(--glass-shadow); }
+    .btn-key.active { color: var(--primary); background: var(--primary-fade); border-color: rgba(10,132,255,0.4); }
+    .top-bar-btns { display: flex; gap: 8px; align-items: center; }
+    .theme-picker { display: flex; gap: 6px; background: var(--glass-bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); padding: 6px; border-radius: 20px; box-shadow: var(--glass-shadow); }
+    .theme-dot { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+    .theme-dot.selected { border-color: #ffffff; transform: scale(1.1); box-shadow: 0 0 12px rgba(255,255,255,0.5); }
+    .vehicle-bar { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px; scrollbar-width: none; }
+    .vehicle-bar::-webkit-scrollbar { display: none; }
+    .tab-btn { flex-shrink: 0; padding: 10px 16px; border-radius: 20px; background: var(--glass-bg-card); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--glass-border); color: var(--text-muted); font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: var(--glass-shadow); }
+    .tab-btn.active { background: rgba(255, 255, 255, 0.95); color: #000000; border-color: #fff; box-shadow: 0 4px 20px rgba(255,255,255,0.25); }
+    .tab-btn-add { background: transparent; border: 1px dashed var(--glass-border-light); color: var(--text-muted); }
+    .tab-btn span { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .veh-img-container { position: relative; width: 100%; aspect-ratio: 2 / 1; max-height: 260px; border-radius: 24px; overflow: hidden; margin-bottom: 16px; background: var(--glass-bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border-light); box-shadow: var(--glass-shadow); }
+    .veh-hero-img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; display: block; }
+    .btn-img-edit { position: absolute; bottom: 12px; right: 54px; background: rgba(0,0,0,0.6); color: #fff; backdrop-filter: blur(12px); border: 1px solid var(--glass-border-light); padding: 8px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .btn-img-del { position: absolute; bottom: 12px; right: 12px; background: rgba(255,69,58,0.8); color: #fff; backdrop-filter: blur(12px); border: 1px solid var(--glass-border-light); width: 34px; height: 34px; border-radius: 17px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .veh-img-placeholder { width: 100%; height: 120px; border: 1px dashed var(--glass-border-light); border-radius: 24px; background: var(--glass-bg-card); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; font-weight: 500; cursor: pointer; margin-bottom: 16px; gap: 8px; box-shadow: var(--glass-shadow); }
+    .vehicle-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .vehicle-title { font-size: 22px; font-weight: 700; color: var(--text-main); }
+    .vehicle-sub { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+    .btn-edit-km { background: var(--glass-bg-card); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--glass-border-light); color: var(--primary); padding: 8px 14px; border-radius: 18px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: var(--glass-shadow); }
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    .kpi-box { background: var(--glass-bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 20px; padding: 14px 10px; text-align: center; box-shadow: var(--glass-shadow); }
+    .kpi-val { font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 2px; white-space: nowrap; }
+    .kpi-label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn-smart-scan { width: 100%; background: linear-gradient(135deg, rgba(10, 132, 255, 0.75) 0%, rgba(0, 102, 204, 0.8) 100%); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.35); padding: 15px; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 20px; box-shadow: 0 8px 28px rgba(10, 132, 255, 0.4); transition: transform 0.1s; }
+    .btn-smart-scan:active { transform: scale(0.98); opacity: 0.9; }
+    .bottom-bar { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); left: 16px; right: 16px; height: 74px; background: rgba(18, 20, 32, 0.72); backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px); border: 1px solid var(--glass-border-light); border-radius: 26px; display: flex; justify-content: space-around; align-items: center; z-index: 900; box-shadow: 0 16px 40px rgba(0,0,0,0.6); }
+    .bottom-tab { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); cursor: pointer; text-decoration: none; border: none; background: transparent; width: 60px; transition: 0.2s; }
+    .bottom-tab i { font-size: 22px; }
+    .bottom-tab span { font-size: 10px; font-weight: 600; }
+    .bottom-tab.active { color: var(--primary); text-shadow: 0 0 16px var(--primary-fade); }
+    .card { background: var(--glass-bg-card); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--glass-border); border-top: 1px solid var(--glass-border-light); border-radius: 24px; padding: 18px; margin-bottom: 16px; box-shadow: var(--glass-shadow); }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .card-title { font-size: 16px; font-weight: 600; color: var(--text-main); }
+    .card-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+    .prog-bg { width: 100%; height: 6px; background: rgba(0,0,0,0.5); border-radius: 3px; overflow: hidden; margin: 12px 0 8px 0; border: 1px solid rgba(255,255,255,0.05); }
+    .prog-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .fill-ok { background: var(--green); box-shadow: 0 0 12px rgba(50,215,75,0.6); }
+    .fill-warn { background: var(--orange); box-shadow: 0 0 12px rgba(255,159,10,0.6); }
+    .fill-urg { background: var(--red); box-shadow: 0 0 12px rgba(255,69,58,0.6); }
+    .prog-info { display: flex; justify-content: space-between; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 16px; }
+    .card-actions { display: flex; gap: 8px; }
+    .btn-action { flex: 1; background: rgba(255,255,255,0.06); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); color: var(--primary); padding: 12px; border-radius: 16px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .btn-action-primary { background: var(--primary); color: #fff; border: none; box-shadow: 0 4px 18px var(--primary-fade); }
+    .btn-action-icon { flex: 0 0 46px; padding: 12px 0; }
+    .btn-danger { background: rgba(255,69,58,0.15); color: var(--red); }
+    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--glass-border); }
+    .list-item:last-child { border-bottom: none; }
+    .list-icon { width: 38px; height: 38px; border-radius: 19px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--primary); margin-right: 12px; flex-shrink: 0; }
+    .list-body { flex: 1; min-width: 0; }
+    .list-title { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+    .list-sub { font-size: 12px; color: var(--text-muted); }
+    .list-right { text-align: right; display: flex; align-items: center; gap: 10px; }
+    
+    /* Ergänzungen: Fehlende Klassen für saubere Historien-Ansicht */
+    .list-thumb { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; border: 1px solid var(--glass-border-light); cursor: pointer; flex-shrink: 0; }
+    .btn-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; transition: background 0.2s; }
+    .btn-icon:hover { background: rgba(255, 255, 255, 0.08); }
+
+    .photo-preview-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; max-height: 180px; overflow-y: auto; }
+    .preview-thumb { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; border: 1px solid var(--glass-border-light); cursor: pointer; }
+    .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); z-index: 999; overflow-y: auto; padding: 20px 16px 60px 16px; }
+    .modal-backdrop.open { display: flex; justify-content: center; align-items: center; }
+    .modal-card { background: rgba(22, 24, 38, 0.85); backdrop-filter: blur(35px); -webkit-backdrop-filter: blur(35px); border: 1px solid var(--glass-border-light); width: 100%; max-width: 420px; border-radius: 28px; padding: 24px; margin: auto; box-shadow: 0 24px 60px rgba(0,0,0,0.7); }
+    .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-input, .form-select { width: 100%; background: rgba(0, 0, 0, 0.55); border: 1px solid var(--glass-border); border-radius: 14px; padding: 14px; color: #fff; font-size: 15px; }
+    .form-input:focus, .form-select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 12px var(--primary-fade); }
+    .modal-btns { display: flex; gap: 12px; margin-top: 24px; }
+    .btn-cancel { flex: 1; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--glass-border); padding: 14px; border-radius: 16px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .btn-save { flex: 1; background: var(--primary); color: #fff; border: none; padding: 14px; border-radius: 16px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 20px var(--primary-fade); }
+    .section-header { font-size: 19px; font-weight: 700; margin: 24px 0 12px 0; display: flex; justify-content: space-between; align-items: center; }
+    .section-header-btn { font-size: 13px; color: var(--primary); background: transparent; border: none; font-weight: 600; cursor: pointer; display:flex; align-items:center; gap:4px; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--glass-border); font-size: 14px; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--text-muted); }
+    .info-val { font-weight: 500; text-align: right; }
+    .ai-loading-box { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); z-index: 1001; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; }
+    .ai-loading-box.open { display: flex; }
+    .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px; }
+    .hint-box { display: none; background: rgba(255,159,10,0.12); border: 1px solid rgba(255,159,10,0.35); color: var(--text-main); padding: 12px; border-radius: 14px; font-size: 12px; line-height: 1.5; margin-bottom: 16px; }
+    .candidate-item { display: block; width: 100%; text-align: left; background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border); border-radius: 14px; padding: 12px 14px; color: var(--text-main); cursor: pointer; margin-bottom: 8px; transition: background 0.2s; }
+    .candidate-item:active, .candidate-item:hover { background: rgba(10, 132, 255, 0.2); border-color: var(--primary); }
+    .candidate-name { font-weight: 700; font-size: 15px; color: #fff; }
+    .candidate-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.3; }
+    .empty-note { padding: 24px; text-align: center; color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+    .chart-container { height: 240px; width: 100%; position: relative; margin-top: 16px; }
+    .crop-viewport-box { position: relative; width: 100%; aspect-ratio: 2 / 1; background: #000; border-radius: 16px; overflow: hidden; border: 1px solid var(--primary); touch-action: none; cursor: grab; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+    #crop-canvas { width: 100%; height: 100%; object-fit: contain; }
+    .crop-slider { width: 100%; accent-color: var(--primary); height: 6px; border-radius: 4px; }
+    .viewer-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); backdrop-filter: blur(25px); z-index: 1000; justify-content: center; align-items: center; padding: 12px; }
+    .viewer-backdrop.open { display: flex; }
+    .viewer-img { max-width: 100%; max-height: 85vh; border-radius: 20px; object-fit: contain; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+    .viewer-close { position: absolute; top: calc(16px + env(safe-area-inset-top)); right: 20px; background: var(--glass-bg-card); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Druckoptimierung für sauberes Serviceheft */
+    @media print {
+      body { background: #ffffff !important; color: #000000 !important; padding: 0 !important; }
+      .bg-glow, .top-bar, .vehicle-bar, .bottom-bar, .btn-smart-scan, .section-header-btn, .btn-action, .btn-img-edit, .btn-img-del, .btn-edit-km { display: none !important; }
+      .card { background: transparent !important; border: 1px solid #ccc !important; box-shadow: none !important; color: #000 !important; page-break-inside: avoid; }
+      .list-item { border-bottom: 1px solid #ddd !important; }
+      .list-title, .vehicle-title, .kpi-val { color: #000 !important; }
+      .list-sub, .info-label, .kpi-label { color: #555 !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-glow glow-1"></div>
+  <div class="bg-glow glow-2"></div>
+  <div class="bg-glow glow-3"></div>
+
+  <div class="top-bar">
+    <div class="app-title">Garage</div>
+    <div class="top-bar-btns">
+      <div class="theme-picker">
+        <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
+        <div class="theme-dot" data-theme="emerald" style="background:#32d74b;" onclick="setTheme('emerald', '#32d74b', 'rgba(50, 215, 75, 0.22)', this)"></div>
+        <div class="theme-dot" data-theme="orange" style="background:#ff9f0a;" onclick="setTheme('orange', '#ff9f0a', 'rgba(255, 159, 10, 0.22)', this)"></div>
+        <div class="theme-dot" data-theme="purple" style="background:#bf5af2;" onclick="setTheme('purple', '#bf5af2', 'rgba(191, 90, 242, 0.22)', this)"></div>
+      </div>
+      <button class="btn-key" id="key-indicator" onclick="openKeyModal()"><i class="ph ph-key"></i> API-Key</button>
+    </div>
+  </div>
+
+  <!-- Rechnungs-Uploads: Multiple aktiviert für Galerie -->
+  <input type="file" id="input-smart-cam-fallback" accept="image/*" capture="environment" style="display:none" onchange="processSmartScanFile(event)">
+  <input type="file" id="input-smart-gal" accept="image/*" multiple style="display:none" onchange="processSmartScanFile(event)">
+  <input type="file" id="input-srv-photo-cam-fallback" accept="image/*" capture="environment" style="display:none" onchange="handleManualPhotoUpload(event)">
+  <input type="file" id="input-srv-photo-gal" accept="image/*" multiple style="display:none" onchange="handleManualPhotoUpload(event)">
+  <input type="file" id="input-schein-photo-fallback" accept="image/*" capture="environment" style="display:none" onchange="processScheinPhoto(event)">
+  <input type="file" id="input-veh-photo-fallback" accept="image/*" capture="environment" style="display:none" onchange="handleVehPhotoUpload(event)">
+  <input type="file" id="input-veh-photo-gal" accept="image/*" style="display:none" onchange="handleVehPhotoUpload(event)">
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+
+  <div class="vehicle-bar" id="vehicle-tabs-container"></div>
+  <div id="hero-area"></div>
+  <div id="content-area"></div>
+
+  <nav class="bottom-bar">
+    <button class="bottom-tab active" id="nav-plan" onclick="switchSubTab('plan')"><i class="ph-fill ph-wrench"></i><span>Wartung</span></button>
+    <button class="bottom-tab" id="nav-hist" onclick="switchSubTab('hist')"><i class="ph ph-files"></i><span>Historie</span></button>
+    <button class="bottom-tab" id="nav-fuel" onclick="switchSubTab('fuel')"><i class="ph ph-gas-pump"></i><span>Tanken</span></button>
+    <button class="bottom-tab" id="nav-charts" onclick="switchSubTab('charts')"><i class="ph ph-chart-pie-slice"></i><span>Stats</span></button>
+    <button class="bottom-tab" id="nav-vehicle" onclick="switchSubTab('vehicle')"><i class="ph ph-car-profile"></i><span>Fahrzeug</span></button>
+  </nav>
+
+  <!-- Modals -->
+  <div class="modal-backdrop" id="modal-key">
+    <div class="modal-card">
+      <div class="modal-title"><i class="ph-fill ph-key" style="color:var(--primary)"></i> KI API-Key</div>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Wird ausschließlich lokal in deinem Browser gespeichert.</p>
+      <div class="form-group">
+        <label class="form-label">Google Gemini Key</label>
+        <input type="password" id="input-api-key" class="form-input" placeholder="AIzaSy...">
+      </div>
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeKeyModal()">Schließen</button>
+        <button class="btn-save" id="btn-save-key" onclick="saveApiKey()">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-confirm">
+    <div class="modal-card">
+      <div class="modal-title" id="confirm-modal-title" style="color:var(--red)"><i class="ph-fill ph-warning-circle"></i> Bestätigen</div>
+      <p id="confirm-modal-text" style="font-size:14px; margin-bottom:24px;"></p>
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeModals()">Abbrechen</button>
+        <button id="btn-confirm-action" class="btn-save" style="background:var(--red);">Löschen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rechnungs-Upload Dialog mit Galerie-Mehrfachauswahl -->
+  <div class="modal-backdrop" id="modal-scan-choice">
+    <div class="modal-card">
+      <div class="modal-title"><i class="ph-fill ph-camera"></i> Belege erfassen</div>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">Wähle die Kamera für 1 Foto oder die Galerie für mehrere Belegseiten auf einmal:</p>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <button class="btn-action" onclick="closeModals(); document.getElementById('input-smart-cam-fallback').click()"><i class="ph ph-camera" style="font-size:20px;"></i> Kamera öffnen (1 Foto)</button>
+        <button class="btn-action btn-action-primary" onclick="closeModals(); document.getElementById('input-smart-gal').click()"><i class="ph ph-images" style="font-size:20px;"></i> Galerie (Bis zu 20+ Fotos wählen)</button>
+      </div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Abbrechen</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-veh-photo-choice">
+    <div class="modal-card">
+      <div class="modal-title"><i class="ph-fill ph-image"></i> Fahrzeug-Foto</div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <button class="btn-action" onclick="startLiveCamera('veh-photo')"><i class="ph ph-camera" style="font-size:20px;"></i> Kamera öffnen</button>
+        <button class="btn-action" onclick="closeModals(); document.getElementById('input-veh-photo-gal').click()"><i class="ph ph-image" style="font-size:20px;"></i> Aus Galerie wählen</button>
+      </div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Abbrechen</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-edit-specs">
+    <div class="modal-card">
+      <div class="modal-title"><i class="ph-fill ph-pencil-simple" style="color:var(--primary)"></i> Fahrzeugdaten</div>
+      <div style="display:flex; gap:12px;">
+        <div class="form-group" style="flex:1.5;"><label class="form-label">Reifengröße</label><input type="text" id="edit-tire-size" class="form-input"></div>
+        <div class="form-group" style="flex:1;"><label class="form-label">Marke</label><input type="text" id="edit-tire-brand" class="form-input"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Öl & Füllmenge</label><input type="text" id="edit-spec-oil" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Reifendruck</label><input type="text" id="edit-spec-pressure" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Batterie</label><input type="text" id="edit-spec-battery" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Versicherung</label><input type="text" id="edit-spec-insurance" class="form-input"></div>
+      <div style="display:flex; gap:12px;">
+        <div class="form-group" style="flex:1;"><label class="form-label">Tel. Versich.</label><input type="tel" id="edit-spec-ins-phone" class="form-input"></div>
+        <div class="form-group" style="flex:1;"><label class="form-label">Tel. Panne</label><input type="tel" id="edit-spec-assist-phone" class="form-input"></div>
+      </div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Abbrechen</button><button class="btn-save" onclick="saveSpecs()">Speichern</button></div>
+    </div>
+  </div>
+
+  <!-- Neues Fahrzeug anlegen -->
+  <div class="modal-backdrop" id="modal-new-veh">
+    <div class="modal-card">
+      <div class="modal-title"><i class="ph-fill ph-car"></i> Fahrzeug anlegen</div>
+      <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:16px; padding:16px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; color:var(--primary); margin-bottom:8px;"><i class="ph-fill ph-database"></i> KBA-Datenbank (Lokal & Online)</div>
+        <p style="font-size:11px; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">Liest HSN/TSN sekundenschnell aus der lokalen <code>kba_db.json</code> aus und generiert den Wartungsplan per KI.</p>
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <div style="flex:1;"><input type="text" id="input-lookup-hsn" class="form-input" placeholder="HSN (2.1)" maxlength="4" style="padding:10px; text-transform:uppercase; font-size:13px; text-align:center;"></div>
+          <div style="flex:1;"><input type="text" id="input-lookup-tsn" class="form-input" placeholder="TSN (2.2)" maxlength="8" style="padding:10px; text-transform:uppercase; font-size:13px; text-align:center;"></div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" onclick="lookupVehicleOptionA()" class="btn-action btn-action-primary" style="flex:2; font-size:12px;"><i class="ph-bold ph-magnifying-glass"></i> Fahrzeug ermitteln</button>
+          <button type="button" onclick="startLiveCamera('schein-scan')" class="btn-action" style="flex:0.5; background:var(--primary-fade); color:var(--primary);"><i class="ph-bold ph-camera"></i></button>
+        </div>
+      </div>
+      <div class="hint-box" id="nv-ai-preview"></div>
+      <div class="form-group"><label class="form-label">Name / Modell</label><input type="text" id="input-nv-name" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Details / Motorisierung</label><input type="text" id="input-nv-sub" class="form-input"></div>
+      <div class="form-group">
+        <label class="form-label">Fahrzeugtyp</label>
+        <select id="input-nv-type" class="form-select">
+          <option value="ph-car-profile">Auto / PKW</option>
+          <option value="ph-moped">Roller / Scooter</option>
+          <option value="ph-motorcycle">Motorrad</option>
+          <option value="ph-van">Transporter / Wohnmobil</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Aktueller KM-Stand</label><input type="number" id="input-nv-km" class="form-input" placeholder="0"></div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Abbrechen</button><button class="btn-save" onclick="saveNewVehicle()">Speichern</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-nv-candidates">
+    <div class="modal-card">
+      <div class="modal-title"><i class="ph-fill ph-list-magnifying-glass" style="color:var(--primary)"></i> Motorisierung wählen</div>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">Bitte tippe deine genaue Ausführung an:</p>
+      <div id="nv-candidates-list" style="max-height:55vh; overflow-y:auto;"></div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeCandidatesModal()">Abbrechen</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-crop">
+    <div class="modal-card">
+      <div class="modal-title">Bild anpassen (2:1 Format)</div>
+      <div class="crop-viewport-box" id="crop-viewport"><canvas id="crop-canvas" width="800" height="400"></canvas></div>
+      <input type="range" id="crop-zoom" class="crop-slider" min="0.4" max="3" step="0.02" value="1" oninput="onCropZoomChange(this.value)">
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Abbrechen</button><button class="btn-save" onclick="applyCroppedImage()">Übernehmen</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-new-inv">
+    <div class="modal-card">
+      <div class="modal-title" id="ni-modal-title">Intervall anlegen</div>
+      <div class="form-group"><label class="form-label">Bezeichnung</label><input type="text" id="input-ni-title" class="form-input" placeholder="z. B. Bremsbeläge vorne"></div>
+      <div class="form-group"><label class="form-label">Kategorie</label><input type="text" id="input-ni-cat" class="form-input" placeholder="z. B. Bremsen"></div>
+      <div style="display:flex; gap:12px;">
+        <div class="form-group" style="flex:1;"><label class="form-label">KM (0 = keine)</label><input type="number" id="input-ni-km" class="form-input" placeholder="30000"></div>
+        <div class="form-group" style="flex:1;"><label class="form-label">Monate</label><input type="number" id="input-ni-m" class="form-input" placeholder="24"></div>
+      </div>
+      <div style="display:flex; gap:12px;">
+        <div class="form-group" style="flex:1;"><label class="form-label">Zuletzt KM</label><input type="number" id="input-ni-lastkm" class="form-input"></div>
+        <div class="form-group" style="flex:1;"><label class="form-label">Zuletzt Datum</label><input type="date" id="input-ni-lastdate" class="form-input"></div>
+      </div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Abbrechen</button><button class="btn-save" onclick="saveNewInterval()">Speichern</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-deadline">
+    <div class="modal-card">
+      <div class="modal-title"><i class="ph-fill ph-calendar-plus" style="color:var(--primary)"></i> Termin</div>
+      <div class="form-group"><label class="form-label">Bezeichnung</label><input type="text" id="input-dl-title" class="form-input" placeholder="z. B. Hauptuntersuchung (TÜV)"></div>
+      <div class="form-group"><label class="form-label">Datum</label><input type="date" id="input-dl-date" class="form-input"></div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Abbrechen</button><button class="btn-save" onclick="saveNewDeadline()">Speichern</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-parts">
+    <div class="modal-card">
+      <div class="modal-title"><i class="ph-fill ph-shopping-cart"></i> Passende Teile finden</div>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;" id="parts-modal-subtitle"></p>
+      <div style="display:flex; flex-direction:column; gap:10px;" id="parts-links-container"></div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Schließen</button></div>
+    </div>
+  </div>
+
+  <!-- KI-Ergebnis nach Multibeleg-Prüfung -->
+  <div class="modal-backdrop" id="modal-ai-result">
+    <div class="modal-card">
+      <div class="modal-title"><i class="ph-fill ph-sparkle" style="color:var(--primary)"></i> Belege geprüft</div>
+      <div id="ai-assistant-message" style="display:none; background: var(--primary-fade); color: var(--primary); padding: 14px; border-radius: 14px; font-size: 13px; margin-bottom: 20px;"></div>
+      <div class="form-group">
+        <label class="form-label">Kategorie</label>
+        <select id="ai-res-type" class="form-select">
+          <option value="Wartung">Wartung / Inspektion</option>
+          <option value="Reparatur">Reparatur</option>
+          <option value="Karosserie/Lack">Karosserie / Lack</option>
+          <option value="Teiletausch">Teiletausch</option>
+          <option value="Fixkosten">Fixkosten</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Intervall zurücksetzen</label><select id="ai-res-interval" class="form-select"></select></div>
+      <div class="form-group"><label class="form-label">Bezeichnung</label><input type="text" id="ai-res-title" class="form-input"></div>
+      <div style="display:flex; gap:12px;">
+        <div class="form-group" style="flex:1;"><label class="form-label">Datum</label><input type="date" id="ai-res-date" class="form-input"></div>
+        <div class="form-group" style="flex:1;"><label class="form-label">Kosten (€)</label><input type="number" step="0.01" id="ai-res-cost" class="form-input"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Kilometer</label><input type="number" id="ai-res-km" class="form-input"></div>
+      <label class="form-label">Verknüpfte Fotos (<span id="ai-photo-count">0</span>)</label>
+      <div id="ai-res-photos-container" class="photo-preview-grid"></div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Verwerfen</button><button class="btn-save" onclick="applyAiResult()">Übernehmen</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-service">
+    <div class="modal-card">
+      <div class="modal-title" id="srv-modal-title">Service erfassen</div>
+      <div class="form-group">
+        <label class="form-label">Kategorie</label>
+        <select id="input-srv-type" class="form-select">
+          <option value="Wartung">Wartung / Inspektion</option>
+          <option value="Reparatur">Reparatur</option>
+          <option value="Karosserie/Lack">Karosserie / Lack</option>
+          <option value="Teiletausch">Teiletausch</option>
+          <option value="Fixkosten">Fixkosten</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Bezeichnung</label><input type="text" id="input-srv-custom-title" class="form-input"></div>
+      <div style="display:flex; gap:12px;">
+        <div class="form-group" style="flex:1;"><label class="form-label">Datum</label><input type="date" id="input-srv-date" class="form-input"></div>
+        <div class="form-group" style="flex:1;"><label class="form-label">Kosten (€)</label><input type="number" step="0.01" id="input-srv-cost" class="form-input"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Kilometer</label><input type="number" id="input-srv-km" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Notiz / Werkstatt</label><input type="text" id="input-srv-note" class="form-input"></div>
+      <div class="form-group">
+        <label class="form-label">Beleg-Fotos (Bis zu 20+)</label>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn-action" style="padding:10px;" onclick="document.getElementById('input-srv-photo-cam-fallback').click()"><i class="ph ph-camera"></i> Foto</button>
+          <button type="button" class="btn-action" style="padding:10px;" onclick="document.getElementById('input-srv-photo-gal').click()"><i class="ph ph-image"></i> Galerie (Mehrfach)</button>
+        </div>
+        <div id="srv-photos-preview" class="photo-preview-grid"></div>
+      </div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Abbrechen</button><button class="btn-save" onclick="saveServiceEntry()">Speichern</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-fuel">
+    <div class="modal-card">
+      <div class="modal-title"><i class="ph-fill ph-gas-pump"></i> Tanken</div>
+      <div style="display:flex; gap:12px;">
+        <div class="form-group" style="flex:1;"><label class="form-label">Datum</label><input type="date" id="input-fuel-date" class="form-input"></div>
+        <div class="form-group" style="flex:1;"><label class="form-label">KM</label><input type="number" id="input-fuel-km" class="form-input"></div>
+      </div>
+      <div style="display:flex; gap:12px;">
+        <div class="form-group" style="flex:1;"><label class="form-label">Liter</label><input type="number" step="0.01" id="input-fuel-liters" class="form-input" oninput="calculateFuelPricePerLiter()"></div>
+        <div class="form-group" style="flex:1;"><label class="form-label">Kosten (€)</label><input type="number" step="0.01" id="input-fuel-cost" class="form-input" oninput="calculateFuelPricePerLiter()"></div>
+      </div>
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:16px;" id="fuel-calc-preview">Ø Preis: - € / Liter</div>
+      <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="input-fuel-full" checked style="width:20px; height:20px; accent-color:var(--primary);">
+        <label for="input-fuel-full" style="font-size:14px;">Vollgetankt</label>
+      </div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Abbrechen</button><button class="btn-save" onclick="saveFuelEntry()">Speichern</button></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-km">
+    <div class="modal-card">
+      <div class="modal-title">Tachostand</div>
+      <div class="form-group"><label class="form-label">Aktueller Kilometerstand</label><input type="number" id="input-km" class="form-input"></div>
+      <div class="modal-btns"><button class="btn-cancel" onclick="closeModals()">Abbrechen</button><button class="btn-save" onclick="saveNewKm()">Speichern</button></div>
+    </div>
+  </div>
+
+  <div class="ai-loading-box" id="ai-loading">
+    <div class="spinner"></div>
+    <div style="font-size:18px; font-weight:600; color:#ffffff;" id="ai-loading-title">Lade Daten...</div>
+    <div style="font-size:14px; color:var(--text-muted); margin-top:8px;" id="ai-loading-text">Bitte warten</div>
+    <button class="btn-cancel" style="margin-top:20px; padding:10px 20px;" onclick="cancelAiRequest()">Abbrechen</button>
+  </div>
+
+  <div class="viewer-backdrop" id="modal-viewer" onclick="closeViewer()">
+    <button class="viewer-close" onclick="closeViewer()">Schließen</button>
+    <img id="viewer-img" class="viewer-img" src="" alt="Vorschau" onclick="event.stopPropagation()">
+  </div>
+
+  <script>
+"use strict";
+
+const STORAGE_KEY = "garage_ai_pro_glass_v9";
+const API_KEY_STORAGE = "gemini_api_key_v1";
+const THEME_STORAGE = "app_theme";
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const AI_TIMEOUT_MS = 60000;
+const LOG_TYPES = ["Wartung", "Reparatur", "Karosserie/Lack", "Teiletausch", "Fixkosten"];
+const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+const EXCLUDE_MODEL_RE = /(image|tts|live|audio|embed|imagen|veo|robotics|computer|aqa|gemma|learnlm|nano|banana|exp)/i;
+
+// Startet leer: eigene Fahrzeuge über "+" anlegen oder ein Backup importieren.
+const DEFAULT_DATA = {};
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+function lsRemove(k) { try { localStorage.removeItem(k); } catch (e) { } }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function fmtNum(n) { return (Number(n) || 0).toLocaleString("de-DE"); }
+function num(x, d) { const n = typeof x === "number" ? x : parseFloat(String(x).replace(",", ".")); return Number.isFinite(n) ? n : (d === undefined ? 0 : d); }
+function clamp(x, min, max) { return Math.min(max, Math.max(min, x)); }
+
+// KORREKTUR: Validierung für Objekte korrigiert (war fälschlicherweise !o)
+function isPlainObject(o) { return Boolean(o) && typeof o === "object" && !Array.isArray(o); }
+
+function cleanId(id, fb) { const s = String(id == null ? "" : id).replace(/[^A-Za-z0-9_-]/g, "_"); return s || fb; }
+function str(x) { return x == null ? "" : String(x); }
+
+// KORREKTUR: Ressourcenschonende Prüfung ohne teuren RegEx über Megabyte-Strings
+function safeImg(s) { 
+  if (typeof s !== "string" || s.length > 3000000) return null;
+  if (s.startsWith("data:image/") && s.includes(";base64,")) return s;
+  return null;
+}
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+function todayISO() { const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+function parseISODate(s) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(str(s)); if (!m) return null; const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])); return isNaN(d.getTime()) ? null : d; }
+function validDateOrToday(s) { return parseISODate(s) ? str(s).slice(0, 10) : todayISO(); }
+function startOfToday() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function addMonths(date, n) { const d = new Date(date.getFullYear(), date.getMonth(), 1); d.setMonth(d.getMonth() + n); const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); d.setDate(Math.min(date.getDate(), last)); return d; }
+function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
+function byDateDesc(a, b) { return str(b.date).localeCompare(str(a.date)) || (b.km - a.km); }
+function sumLogCost(v) { return (v.logs || []).reduce((s, l) => s + (num(l.cost) || 0), 0); }
+function normTire(x) { x = isPlainObject(x) ? x : {}; return { size: x.size == null ? "-" : String(x.size), brand: x.brand == null ? "" : String(x.brand), depthVA: num(x.depthVA, 6), depthHA: num(x.depthHA, 6) }; }
+
+function normalizeVehicle(raw, id) {
+  if (!isPlainObject(raw)) return null;
+  const v = Object.assign({}, raw);
+  v.id = id;
+  v.name = str(raw.name).trim() || "Fahrzeug";
+  v.sub = str(raw.sub);
+  v.icon = /^ph-[a-z0-9-]+$/.test(str(raw.icon)) ? raw.icon : "ph-car-profile";
+  v.image = safeImg(raw.image);
+  v.km = Math.max(0, Math.round(num(raw.km)));
+  v.fuelType = str(raw.fuelType) || "Diesel";
+  v.searchPrefix = str(raw.searchPrefix) || v.name;
+  const s = isPlainObject(raw.specs) ? Object.assign({}, raw.specs) : {};
+  ["oil", "tirePressure", "hsn_tsn", "battery", "insurance", "insurancePhone", "assistPhone"].forEach(k => { s[k] = str(s[k]); });
+  v.specs = s;
+  const t = isPlainObject(raw.tires) ? raw.tires : {};
+  v.tires = { currentSeason: t.currentSeason === "Winter" ? "Winter" : "Sommer", summer: normTire(t.summer), winter: normTire(t.winter) };
+  v.deadlines = (Array.isArray(raw.deadlines) ? raw.deadlines : []).filter(isPlainObject).map((d, i) => ({ id: cleanId(d.id, "dl_" + i), title: str(d.title) || "Termin", date: str(d.date).slice(0, 10) })).sort((a, b) => a.date.localeCompare(b.date));
+  v.fuels = (Array.isArray(raw.fuels) ? raw.fuels : []).filter(isPlainObject).map(f => ({ date: validDateOrToday(f.date), km: Math.max(0, Math.round(num(f.km))), liters: num(f.liters), cost: num(f.cost), isFull: f.isFull !== false })).filter(f => f.liters > 0).sort(byDateDesc);
+  const seen = {};
+  v.intervals = (Array.isArray(raw.intervals) ? raw.intervals : []).filter(isPlainObject).map((inv, i) => {
+    let iid = cleanId(inv.id, "inv_" + i);
+    while (seen[iid]) iid += "_" + i;
+    seen[iid] = true;
+    return { id: iid, title: str(inv.title) || "Intervall", cat: str(inv.cat) || "Service", partsQuery: str(inv.partsQuery), maxKm: Math.max(0, Math.round(num(inv.maxKm))), lastKm: Math.max(0, Math.round(num(inv.lastKm))), maxM: Math.max(0, Math.round(num(inv.maxM))), lastDate: parseISODate(inv.lastDate) ? str(inv.lastDate).slice(0, 10) : "", desc: str(inv.desc) };
+  });
+  v.logs = (Array.isArray(raw.logs) ? raw.logs : []).filter(isPlainObject).map(l => ({
+    date: validDateOrToday(l.date),
+    km: Math.max(0, Math.round(num(l.km))),
+    type: LOG_TYPES.includes(l.type) ? l.type : "Wartung",
+    title: str(l.title) || "Eintrag",
+    cost: Math.max(0, num(l.cost)),
+    note: str(l.note),
+    photo: safeImg(l.photo),
+    photos: Array.isArray(l.photos) ? l.photos.map(safeImg).filter(Boolean) : (safeImg(l.photo) ? [safeImg(l.photo)] : [])
+  })).sort(byDateDesc);
+  v.totalCost = sumLogCost(v);
+  return v;
+}
+
+function normalizeAppData(obj) {
+  if (!isPlainObject(obj)) return null;
+  const out = {};
+  Object.keys(obj).forEach((k, i) => {
+    let id = cleanId(k, "veh_" + i);
+    if (/^__/.test(id)) id = "v" + id;
+    while (out[id]) id += "_" + i;
+    const nv = normalizeVehicle(obj[k], id);
+    if (nv) out[id] = nv;
+  });
+  return out;
+}
+
+function getIntervalStatus(inv, v) {
+  const today = startOfToday();
+  let kmRest = null, daysRest = null, kmPct = 0, timePct = 0;
+  if (inv.maxKm > 0) { kmRest = (inv.lastKm + inv.maxKm) - v.km; kmPct = clamp(((v.km - inv.lastKm) / inv.maxKm) * 100, 0, 100); }
+  if (inv.maxM > 0 && inv.lastDate) {
+    const last = parseISODate(inv.lastDate);
+    if (last) {
+      const due = addMonths(last, inv.maxM);
+      daysRest = daysBetween(today, due);
+      const total = Math.max(1, daysBetween(last, due));
+      timePct = clamp((daysBetween(last, today) / total) * 100, 0, 100);
+    }
+  }
+  return { kmRest: kmRest, daysRest: daysRest, pct: Math.max(kmPct, timePct), isUrgent: (kmRest !== null && kmRest <= 0) || (daysRest !== null && daysRest <= 0) };
+}
+
+function calculateFuelStats(v) {
+  const fuels = v.fuels || [];
+  const res = { totalFuelCost: fuels.reduce((s, f) => s + f.cost, 0), avgConsumption: null, costPerKm: null, lastPricePerLiter: null };
+  if (fuels.length > 0 && fuels[0].liters > 0) {
+    res.lastPricePerLiter = (fuels[0].cost / fuels[0].liters).toFixed(3);
+  }
+  const sorted = fuels.filter(f => f.km > 0).sort((a, b) => a.km - b.km);
+  const fulls = sorted.filter(f => f.isFull !== false);
+  if (fulls.length < 2) return res;
+  const first = fulls[0], last = fulls[fulls.length - 1];
+  const dist = last.km - first.km;
+  if (dist <= 0) return res;
+  const win = sorted.filter(f => f.km > first.km && f.km <= last.km);
+  const liters = win.reduce((s, f) => s + f.liters, 0);
+  const fuelCost = win.reduce((s, f) => s + f.cost, 0);
+  const logCost = (v.logs || []).filter(l => l.km > first.km && l.km <= last.km).reduce((s, l) => s + (num(l.cost) || 0), 0);
+  res.avgConsumption = (liters / dist) * 100;
+  res.costPerKm = (fuelCost + logCost) / dist;
+  return res;
+}
+
+function rankGeminiModels(names) {
+  const scored = [], rest = [];
+  names.forEach(n => {
+    if (!/^gemini-/.test(n) || EXCLUDE_MODEL_RE.test(n)) return;
+    const m = /^gemini-(\d+(?:\.\d+)?)-flash(-lite)?(-preview.*)?$/.exec(n);
+    if (m) scored.push({ n: n, s: parseFloat(m[1]) * 100 - (m[2] ? 30 : 0) });
+    else if (/flash/.test(n)) rest.push(n);
+  });
+  scored.sort((a, b) => b.s - a.s);
+  return scored.map(x => x.n).concat(rest);
+}
+
+function safeParseJSON(text) {
+  const cleaned = str(text).replace(/```json/gi, "").replace(/```/g, "").trim();
+  try { const p = JSON.parse(cleaned); if (isPlainObject(p)) return p; } catch (e) { }
+  const s = cleaned.indexOf("{"), t = cleaned.lastIndexOf("}");
+  if (s >= 0 && t > s) { try { const p2 = JSON.parse(cleaned.slice(s, t + 1)); if (isPlainObject(p2)) return p2; } catch (e) { } }
+  return { error: "JSON parsing fehlgeschlagen" };
+}
+
+function extractGeminiText(resData) {
+  const cand = resData && resData.candidates && resData.candidates[0];
+  const parts = cand && cand.content && cand.content.parts;
+  if (parts && parts.length) {
+    const text = parts.filter(p => typeof p.text === "string").map(p => p.text).join("");
+    if (text.trim()) return text;
+  }
+  throw new Error("Keine Antwort von der KI erhalten.");
+}
+
+function loadAppData() {
+  const raw = lsGet(STORAGE_KEY);
+  if (raw === null) return normalizeAppData(JSON.parse(JSON.stringify(DEFAULT_DATA)));
+  try {
+    const parsed = normalizeAppData(JSON.parse(raw));
+    if (parsed) return parsed;
+  } catch (e) { }
+  return normalizeAppData(JSON.parse(JSON.stringify(DEFAULT_DATA)));
+}
+
+let appData = loadAppData();
+let apiKey = lsGet(API_KEY_STORAGE) || "";
+let currentVehId = Object.keys(appData)[0] || null;
+let currentSubTab = "plan";
+let activeIntervalId = null; let editingIntervalId = null;
+let tempUploadedPhotosBase64 = [];
+let pendingAiVehicleData = null; let pendingAiCandidates = null;
+let chartCategoryInstance = null; let chartMonthlyInstance = null;
+let cachedModels = null; let aiController = null; let aiUserCancelled = false;
+let kbaDatabaseCache = null;
+
+let cropRawImage = null; let cropZoom = 1; let cropPanX = 0; let cropPanY = 0; let isDraggingCrop = false; let cropStartX = 0; let cropStartY = 0;
+
+function currentVehicle() { return currentVehId ? (appData[currentVehId] || null) : null; }
+
+// KORREKTUR: QuotaExceeded-Absicherung bei vollem Browserspeicher
+function saveData() { 
+  const ok = lsSet(STORAGE_KEY, JSON.stringify(appData));
+  if (!ok) {
+    alert("Achtung: Der Browserspeicher ist voll! Bitte lösche einige Belegfotos oder lade ein Backup herunter, um Datenverlust zu vermeiden.");
+  }
+  return ok;
+}
+
+function setTheme(name, primary, fade, el) {
+  document.documentElement.style.setProperty("--primary", primary);
+  document.documentElement.style.setProperty("--primary-fade", fade);
+  lsSet(THEME_STORAGE, JSON.stringify({ name: name, primary: primary, fade: fade }));
+  document.querySelectorAll(".theme-dot").forEach(d => d.classList.remove("selected"));
+  if (el) el.classList.add("selected");
+}
+
+function switchVehicle(id) { currentVehId = id; window.scrollTo(0, 0); renderAll(); }
+function switchSubTab(tab) {
+  currentSubTab = tab;
+  document.querySelectorAll(".bottom-tab").forEach(b => { b.classList.remove("active"); const i = b.querySelector("i"); if (i) { i.classList.remove("ph-fill"); i.classList.add("ph"); } });
+  const btn = document.getElementById("nav-" + tab);
+  if (btn) { btn.classList.add("active"); const i = btn.querySelector("i"); if (i) { i.classList.remove("ph"); i.classList.add("ph-fill"); } }
+  window.scrollTo(0, 0);
+  renderAll();
+}
+
+function closeModals() { document.querySelectorAll(".modal-backdrop").forEach(m => m.classList.remove("open")); }
+function showLoading(text, title) { 
+  document.getElementById("ai-loading-title").textContent = title || "Verarbeite...";
+  document.getElementById("ai-loading-text").textContent = text || "Bitte warten"; 
+  document.getElementById("ai-loading").classList.add("open"); 
+}
+function hideLoading() { document.getElementById("ai-loading").classList.remove("open"); }
+
+function openKeyModal() { document.getElementById("input-api-key").value = apiKey; document.getElementById("modal-key").classList.add("open"); }
+function closeKeyModal() { document.getElementById("modal-key").classList.remove("open"); }
+async function saveApiKey() {
+  const testKey = document.getElementById("input-api-key").value.trim();
+  apiKey = testKey;
+  if (testKey) lsSet(API_KEY_STORAGE, apiKey); else lsRemove(API_KEY_STORAGE);
+  updateKeyIndicator();
+  closeKeyModal();
+}
+function updateKeyIndicator() {
+  const ind = document.getElementById("key-indicator");
+  if (apiKey) { ind.className = "btn-key active"; ind.innerHTML = '<i class="ph-fill ph-key"></i> Key aktiv'; }
+  else { ind.className = "btn-key"; ind.innerHTML = '<i class="ph ph-key"></i> API-Key'; }
+}
+
+async function getModelCandidates(signal) {
+  if (cachedModels && cachedModels.length) return cachedModels;
+  let list = [];
+  try {
+    const resp = await fetch(GEMINI_BASE + "/models?pageSize=1000&key=" + encodeURIComponent(apiKey), { signal: signal });
+    if (resp.ok) {
+      const data = await resp.json();
+      const names = (data.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => str(m.name).replace(/^models\//, ""));
+      list = rankGeminiModels(names);
+    }
+  } catch (e) { }
+  if (!list.length) list = FALLBACK_MODELS.slice();
+  cachedModels = list;
+  return list;
+}
+
+function cancelAiRequest() { aiUserCancelled = true; if (aiController) aiController.abort(); hideLoading(); }
+
+async function executeGeminiRequest(bodyPayload) {
+  aiUserCancelled = false;
+  const controller = new AbortController();
+  aiController = controller;
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  try {
+    const candidates = await getModelCandidates(controller.signal);
+    let lastError = null;
+    for (const model of candidates) {
+      const resp = await fetch(GEMINI_BASE + "/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey), {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(bodyPayload), signal: controller.signal
+      });
+      let data = null;
+      try { data = await resp.json(); } catch (e) { }
+      if (resp.ok && data) return data;
+      lastError = (data && data.error && data.error.message) || ("HTTP " + resp.status);
+    }
+    throw new Error(lastError || "Verbindung fehlgeschlagen.");
+  } finally {
+    clearTimeout(timer);
+    if (aiController === controller) aiController = null;
+  }
+}
+
+async function callAiJson(payload) {
+  const resData = await executeGeminiRequest(payload);
+  return safeParseJSON(extractGeminiText(resData));
+}
+
+// =====================================================================
+// KBA-DATENBANKABGLEICH (kba_db.json)
+// =====================================================================
+
+async function loadKbaDatabase() {
+  if (kbaDatabaseCache) return kbaDatabaseCache;
+  try {
+    const res = await fetch("kba_db.json");
+    if (res.ok) {
+      kbaDatabaseCache = await res.json();
+      return kbaDatabaseCache;
+    }
+  } catch (e) {
+    console.warn("kba_db.json nicht im selben Ordner oder blockiert durch file://:", e);
+  }
+  return null;
+}
+
+async function fetchKfzFromKba(hsn, tsn) {
+  const cleanHsn = hsn.trim().padStart(4, "0");
+  const cleanTsn = tsn.trim().toUpperCase().substring(0, 3);
+  const key = `${cleanHsn}/${cleanTsn}`;
+
+  const db = await loadKbaDatabase();
+  if (db) {
+    let match = db[key] || db[`${hsn.trim()}/${cleanTsn}`];
+    if (match) {
+      const cleanName = match.replace(/\s+\d{2}\.\d{2}\.\d{4}.*$/, "").trim();
+      return [{
+        name: cleanName,
+        sub: `KBA-Schlüssel ${key}`,
+        fuelType: "Unbekannt"
+      }];
+    }
+  }
+
+  const localIndex = {
+    "8566/AXD": [{ name: "Ford S-Max 2.2 TDCi", sub: "2.2L Duratorq Diesel • 147 kW / 200 PS", fuelType: "Diesel" }],
+    "8566/506": [{ name: "Ford Fiesta 1.4 TDCi", sub: "1.4L Duratorq Diesel • 50 kW / 68 PS", fuelType: "Diesel" }],
+    "9891/AAA": [{ name: "Smart fortwo coupe cdi", sub: "0.8L cdi Diesel • 33 kW / 45 PS", fuelType: "Diesel" }],
+    "0005/AHY": [{ name: "BMW 120d (E87) 5-Türer", sub: "2.0L Turbodiesel • 130 kW / 177 PS", fuelType: "Diesel" }]
+  };
+  if (localIndex[key]) return localIndex[key];
+
+  return [];
+}
+
+async function fetchSpecsForVehicle(vehCandidate, hsn, tsn) {
+  showLoading(`Lade Wartungsdaten für ${vehCandidate.name}...`, "Stufe 2/2: KI-Wartungsplan");
+
+  const prompt = `Du bist ein Kfz-Meister. Erstelle die herstellerspezifischen Wartungsdaten und Füllmengen für dieses exakt ausgewählte Fahrzeug:
+Fahrzeugmodell: ${vehCandidate.name}
+Motorisierung: ${vehCandidate.sub}
+Kraftstoff: ${vehCandidate.fuelType}
+KBA-Code: ${hsn} / ${tsn}
+
+WICHTIG:
+Übertrage exakt diesen Modellnamen und diese Motorisierung! Generiere die genauen Spezifikationen und herstellerspezifischen Wartungsintervalle:
+
+Antworte AUSSCHLIESSLICH im validen JSON-Format:
+{
+  "name": "${vehCandidate.name}",
+  "sub": "${vehCandidate.sub}",
+  "fuelType": "${vehCandidate.fuelType}",
+  "oilSpec": "Ölnorm (z.B. Ford WSS-M2C913-D oder BMW Longlife-04)",
+  "oilCapacity": "Füllmenge mit Filter (z.B. 5.8 L)",
+  "tirePressure": "Empfohlener Druck (z.B. V: 2.4 bar | H: 2.4 bar)",
+  "battery": "Batterie (z.B. 12V 80Ah AGM)",
+  "tireSizeSummer": "Reifengröße Sommer (z.B. 225/50 R17 98W)",
+  "tireSizeWinter": "Reifengröße Winter (z.B. 215/60 R16 99H)",
+  "intervals": [
+    { "title": "Motoröl & Ölfilter", "cat": "Öl", "partsQuery": "Motoröl Ölfilter ${vehCandidate.name}", "maxKm": 20000, "maxM": 12, "desc": "Herstellervorgabe: Jährlich oder 20.000 km" },
+    { "title": "Zahnriemen & Wasserpumpe", "cat": "Motor", "partsQuery": "Zahnriemensatz Wasserpumpe ${vehCandidate.name}", "maxKm": 200000, "maxM": 120, "desc": "Alle 200.000 km / 10 Jahre" },
+    { "title": "Bremsflüssigkeit", "cat": "Bremsen", "partsQuery": "Bremsflüssigkeit DOT 4", "maxKm": 0, "maxM": 24, "desc": "Alle 24 Monate erneuern" },
+    { "title": "Dieselfilter / Kraftstofffilter", "cat": "Filter", "partsQuery": "Kraftstofffilter ${vehCandidate.name}", "maxKm": 40000, "maxM": 24, "desc": "Alle 2 Jahre / 40.000 km" },
+    { "title": "Luftfiltereinsatz", "cat": "Filter", "partsQuery": "Luftfilter ${vehCandidate.name}", "maxKm": 40000, "maxM": 24, "desc": "Alle 2 Jahre / 40.000 km" },
+    { "title": "Innenraum- / Aktivkohlefilter", "cat": "Filter", "partsQuery": "Innenraumfilter ${vehCandidate.name}", "maxKm": 20000, "maxM": 12, "desc": "Jährlich erneuern" }
+  ]
+}`;
+
+  // KORREKTUR: responseMimeType in CamelCase
+  return await callAiJson({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { responseMimeType: "application/json" }
+  });
+}
+
+async function lookupVehicleOptionA() {
+  const hsn = document.getElementById("input-lookup-hsn").value.trim().toUpperCase();
+  const tsn = document.getElementById("input-lookup-tsn").value.trim().toUpperCase();
+  const nameField = document.getElementById("input-nv-name").value.trim();
+
+  if (!hsn && !tsn && !nameField) {
+    alert("Bitte HSN/TSN oder Fahrzeugnamen eingeben!");
+    return;
+  }
+
+  if (!apiKey) {
+    alert("Achtung: Bitte trage zuerst oben rechts über 'API-Key' deinen Gemini-Key ein!\n\nOhne Key kann die KI die genaue Motorisierung, Füllmengen und Intervalle nicht ermitteln.");
+    openKeyModal();
+    return;
+  }
+
+  showLoading("Ermittle Modell & Karosserievarianten...", "Stufe 1/2: Abgleich");
+
+  try {
+    let kbaMatch = "";
+    if (hsn && tsn) {
+      const matches = await fetchKfzFromKba(hsn, tsn);
+      if (matches && matches.length > 0) kbaMatch = matches[0].name;
+    }
+
+    const variantPrompt = `Du bist ein Kfz-Experte mit Zugriff auf Fahrzeugdatenbanken.
+Ermittle alle realen Karosserie- und Motorisierungsvarianten für diesen deutschen KBA-Schlüssel:
+HSN (2.1): ${hsn || "Unbekannt"}
+TSN (2.2): ${tsn || "Unbekannt"}
+KBA-Roheintrag: ${kbaMatch || nameField || "Fahrzeug"}
+
+BEISPIELE & PRÄZISION:
+- Bei Ford 8566 / AXD: Dies ist der Ford S-Max (und Galaxy) mit dem 2.2 TDCi Duratorq Dieselmotor mit 200 PS / 147 kW. Setze den S-Max 2.2 TDCi an Position 1!
+- Bei BMW 0005 / AHY: Dies ist primär der BMW 120d 5-Türer (E87) mit 177 PS / 130 kW Diesel. Setze den E87 an Position 1!
+
+Antworte AUSSCHLIESSLICH im validen JSON-Format:
+{
+  "candidates": [
+    {
+      "name": "Exakter Modellname (z. B. Ford S-Max 2.2 TDCi)",
+      "sub": "2.2L Duratorq Diesel • 147 kW / 200 PS",
+      "fuelType": "Diesel"
+    },
+    {
+      "name": "Alternative Ausführung (z. B. Ford Galaxy 2.2 TDCi)",
+      "sub": "2.2L Duratorq Diesel • 147 kW / 200 PS",
+      "fuelType": "Diesel"
+    }
+  ]
+}`;
+
+    // KORREKTUR: responseMimeType in CamelCase
+    const parsedVariants = await callAiJson({
+      contents: [{ parts: [{ text: variantPrompt }] }],
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const candidates = (parsedVariants && Array.isArray(parsedVariants.candidates) && parsedVariants.candidates.length > 0)
+      ? parsedVariants.candidates
+      : (kbaMatch ? [{ name: kbaMatch, sub: `KBA ${hsn}/${tsn}`, fuelType: "Diesel / Benzin" }] : []);
+
+    if (!candidates.length) {
+      hideLoading();
+      alert(`Zu HSN: ${hsn} / TSN: ${tsn} konnte keine Variante gefunden werden. Bitte trage das Modell manuell ein.`);
+      return;
+    }
+
+    pendingAiCandidates = candidates;
+
+    if (candidates.length > 1) {
+      hideLoading();
+      renderCandidateList(candidates);
+      document.getElementById("modal-nv-candidates").classList.add("open");
+    } else {
+      const fullData = await fetchSpecsForVehicle(candidates[0], hsn, tsn);
+      applyVehicleCandidate(fullData);
+    }
+  } catch (err) {
+    alert("Fehler bei der Abfrage: " + err.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+async function selectCandidateAndFetchSpecs(index) {
+  closeCandidatesModal();
+  const cand = pendingAiCandidates[index];
+  const hsn = document.getElementById("input-lookup-hsn").value.trim().toUpperCase();
+  const tsn = document.getElementById("input-lookup-tsn").value.trim().toUpperCase();
+
+  try {
+    const fullData = await fetchSpecsForVehicle(cand, hsn, tsn);
+    applyVehicleCandidate(fullData);
+  } catch (err) {
+    alert("Fehler beim Abruf: " + err.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+function selectManualCandidatePrompt() {
+  closeCandidatesModal();
+  const def = (pendingAiCandidates && pendingAiCandidates[0]) ? pendingAiCandidates[0].name : "Mein Fahrzeug";
+  const custom = prompt("Gib deine genaue Modell- und Baureihenbezeichnung ein:", def);
+  if (!custom) return;
+  const hsn = document.getElementById("input-lookup-hsn").value.trim().toUpperCase();
+  const tsn = document.getElementById("input-lookup-tsn").value.trim().toUpperCase();
+  
+  const customCand = {
+    name: custom,
+    sub: "Individuelle Motorisierung",
+    fuelType: "Diesel"
+  };
+  fetchSpecsForVehicle(customCand, hsn, tsn).then(fullData => {
+    applyVehicleCandidate(fullData);
+  }).finally(() => hideLoading());
+}
+
+function renderCandidateList(list) {
+  let html = list.map((c, i) => `
+    <button type="button" class="candidate-item" onclick="selectCandidateAndFetchSpecs(${i})">
+      <div class="candidate-name">${esc(c.name)}</div>
+      <div class="candidate-sub">${esc(c.sub)} ${c.fuelType ? '• ' + esc(c.fuelType) : ''}</div>
+    </button>`).join("");
+
+  html += `
+    <button type="button" class="candidate-item" style="border:1px dashed var(--glass-border-light); margin-top:14px; background:rgba(255,255,255,0.03);" onclick="selectManualCandidatePrompt()">
+      <div class="candidate-name" style="color:var(--primary);"><i class="ph-bold ph-pencil-simple"></i> Eigene Modellbezeichnung / Baureihe anpassen</div>
+      <div class="candidate-sub">Trage dein Modell direkt selbst ein</div>
+    </button>
+  `;
+
+  document.getElementById("nv-candidates-list").innerHTML = html;
+}
+
+function applyVehicleCandidate(p) {
+  if (p.name) document.getElementById("input-nv-name").value = str(p.name);
+  if (p.sub) document.getElementById("input-nv-sub").value = str(p.sub);
+  pendingAiVehicleData = p;
+  showAiPreview(p);
+}
+
+function showAiPreview(p) {
+  const box = document.getElementById("nv-ai-preview");
+  const ints = (Array.isArray(p.intervals) ? p.intervals : []).map(i => `• ${esc(i.title)}`).join("<br>");
+  const changeBtn = (pendingAiCandidates && pendingAiCandidates.length > 1)
+    ? `<div style="margin-top:10px;"><button type="button" class="btn-action" style="padding:6px 12px; font-size:11px;" onclick="document.getElementById('modal-nv-candidates').classList.add('open')"><i class="ph-bold ph-arrows-clockwise"></i> Andere Ausführung wählen</button></div>`
+    : '';
+
+  box.innerHTML = `<div style="color:var(--green); font-weight:700; margin-bottom:6px;">✅ Verifiziert per KBA & KI</div>
+    <strong>Modell:</strong> ${esc(p.name || "-")}<br>
+    <strong>Motorisierung:</strong> ${esc(p.sub || "-")} (${esc(p.fuelType || "-")})<br><br>
+    <strong>Spezifikationen:</strong><br>
+    Öl: ${esc(p.oilSpec || "-")} (${esc(p.oilCapacity || "-")})<br>
+    Reifendruck: ${esc(p.tirePressure || "-")}<br>
+    Batterie: ${esc(p.battery || "-")}<br>
+    Reifen: ${esc(p.tireSizeSummer || "-")}<br><br>
+    <strong>Wartungsintervalle:</strong><br>${ints || "Standard-Intervalle"}
+    ${changeBtn}`;
+  box.style.display = "block";
+}
+
+function closeCandidatesModal() { const m = document.getElementById("modal-nv-candidates"); if (m) m.classList.remove("open"); }
+
+async function processScheinPhoto(e) {
+  const file = takeFile(e); if (!file) return;
+  if (!apiKey) { alert("Bitte zuerst API-Key hinterlegen!"); openKeyModal(); return; }
+  showLoading("Lese Fahrzeugschein per KI...", "Fahrzeugschein-Scan");
+  try {
+    const img = await fileToImage(file);
+    const b64 = drawScaled(img, 1200, 0.7).split(",")[1];
+    
+    // KORREKTUR: inlineData, mimeType & responseMimeType in CamelCase
+    const parsed = await callAiJson({
+      contents: [{ 
+        parts: [
+          { inlineData: { mimeType: "image/jpeg", data: b64 } }, 
+          { text: 'Lies Feld 2.1 (4-stellige HSN) und 2.2 (3-stellige TSN) aus dem Fahrzeugschein. Antworte nur als JSON: {"hsn": "8566", "tsn": "AXD"}' }
+        ] 
+      }],
+      generationConfig: { responseMimeType: "application/json" }
+    });
+    
+    if (parsed.hsn && parsed.tsn) {
+      document.getElementById("input-lookup-hsn").value = parsed.hsn.trim();
+      document.getElementById("input-lookup-tsn").value = parsed.tsn.trim().substring(0,3);
+      lookupVehicleOptionA();
+    } else {
+      alert("HSN/TSN konnten im Bild nicht eindeutig erkannt werden. Bitte manuell eintragen.");
+    }
+  } catch (err) {
+    alert("Fehler: " + err.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+function openNewVehModal() {
+  ["input-nv-name", "input-nv-sub", "input-nv-km", "input-lookup-hsn", "input-lookup-tsn"].forEach(id => { document.getElementById(id).value = ""; });
+  document.getElementById("nv-ai-preview").style.display = "none";
+  pendingAiVehicleData = null;
+  pendingAiCandidates = null;
+  document.getElementById("modal-new-veh").classList.add("open");
+}
+
+function saveNewVehicle() {
+  const name = document.getElementById("input-nv-name").value.trim();
+  const sub = document.getElementById("input-nv-sub").value.trim();
+  const km = Math.max(0, Math.round(num(document.getElementById("input-nv-km").value)));
+  const icon = document.getElementById("input-nv-type").value;
+  if (!name) return alert("Bitte mindestens einen Fahrzeugnamen angeben!");
+
+  const newId = "veh_" + Date.now();
+  const p = pendingAiVehicleData || {};
+  const hsnVal = document.getElementById("input-lookup-hsn").value.trim();
+  const tsnVal = document.getElementById("input-lookup-tsn").value.trim();
+
+  const intervals = (Array.isArray(p.intervals) && p.intervals.length > 0) ? p.intervals.map((inv, idx) => ({
+    id: "inv_" + Date.now() + "_" + idx,
+    title: inv.title || "Service",
+    cat: inv.cat || "Wartung",
+    partsQuery: inv.partsQuery || `${name} ${inv.title}`,
+    maxKm: Math.max(0, Math.round(num(inv.maxKm))),
+    lastKm: km,
+    maxM: Math.max(0, Math.round(num(inv.maxM))),
+    lastDate: todayISO(),
+    desc: inv.desc || (inv.maxKm ? `Alle ${fmtNum(inv.maxKm)} km` : `Alle ${inv.maxM} Monate`)
+  })) : [
+    { id: "i1", title: "Motoröl & Filter", cat: "Öl", partsQuery: "Motoröl Ölfilter " + name, maxKm: 20000, lastKm: km, maxM: 12, lastDate: todayISO(), desc: "Jährlich oder alle 20.000 km" },
+    { id: "i2", title: "Bremsflüssigkeit", cat: "Bremsen", partsQuery: "Bremsflüssigkeit DOT 4", maxKm: 0, lastKm: km, maxM: 24, lastDate: todayISO(), desc: "Alle 24 Monate wechseln" }
+  ];
+
+  appData[newId] = normalizeVehicle({
+    id: newId,
+    name: name,
+    sub: sub || p.sub || "",
+    icon: icon,
+    image: null,
+    km: km,
+    fuelType: p.fuelType || "Diesel",
+    searchPrefix: name,
+    specs: { 
+      oil: p.oilSpec ? `${p.oilSpec} [${p.oilCapacity || '-'}]` : "-", 
+      tirePressure: p.tirePressure || "-", 
+      hsn_tsn: (hsnVal && tsnVal) ? `${hsnVal} / ${tsnVal}` : "-", 
+      battery: p.battery || "-" 
+    },
+    tires: {
+      currentSeason: "Sommer",
+      summer: { size: p.tireSizeSummer || "-", brand: "", depthVA: 6, depthHA: 6 },
+      winter: { size: p.tireSizeWinter || "-", brand: "", depthVA: 6, depthHA: 6 }
+    },
+    intervals: intervals,
+    logs: [],
+    fuels: [],
+    deadlines: [{ id: "dl_tuv", title: "Hauptuntersuchung (TÜV)", date: todayISO() }]
+  }, newId);
+
+  currentVehId = newId;
+  saveData(); 
+  renderAll(); 
+  closeModals();
+}
+
+// =====================================================================
+// STANDARD UI, WARTUNG & STATS
+// =====================================================================
+
+function openKmModal() { const v = currentVehicle(); if (!v) return; document.getElementById("input-km").value = v.km; document.getElementById("modal-km").classList.add("open"); }
+function saveNewKm() {
+  const v = currentVehicle(); if (!v) return closeModals();
+  const val = Math.round(num(document.getElementById("input-km").value));
+  if (val <= 0) return alert("Bitte gültigen Kilometerstand eingeben.");
+  v.km = val; saveData(); renderAll(); closeModals();
+}
+
+function openEditSpecsModal() {
+  const v = currentVehicle(); if (!v) return;
+  const ssn = v.tires.currentSeason === "Winter" ? v.tires.winter : v.tires.summer;
+  document.getElementById("edit-tire-size").value = ssn.size === "-" ? "" : ssn.size;
+  document.getElementById("edit-tire-brand").value = ssn.brand;
+  document.getElementById("edit-spec-oil").value = v.specs.oil === "-" ? "" : v.specs.oil;
+  document.getElementById("edit-spec-pressure").value = v.specs.tirePressure === "-" ? "" : v.specs.tirePressure;
+  document.getElementById("edit-spec-battery").value = v.specs.battery === "-" ? "" : v.specs.battery;
+  document.getElementById("edit-spec-insurance").value = v.specs.insurance;
+  document.getElementById("edit-spec-ins-phone").value = v.specs.insurancePhone;
+  document.getElementById("edit-spec-assist-phone").value = v.specs.assistPhone;
+  document.getElementById("modal-edit-specs").classList.add("open");
+}
+
+function saveSpecs() {
+  const v = currentVehicle(); if (!v) return;
+  const ssn = v.tires.currentSeason === "Winter" ? v.tires.winter : v.tires.summer;
+  ssn.size = document.getElementById("edit-tire-size").value.trim() || "-";
+  ssn.brand = document.getElementById("edit-tire-brand").value.trim();
+  v.specs.oil = document.getElementById("edit-spec-oil").value.trim() || "-";
+  v.specs.tirePressure = document.getElementById("edit-spec-pressure").value.trim() || "-";
+  v.specs.battery = document.getElementById("edit-spec-battery").value.trim() || "-";
+  v.specs.insurance = document.getElementById("edit-spec-insurance").value.trim();
+  v.specs.insurancePhone = document.getElementById("edit-spec-ins-phone").value.trim();
+  v.specs.assistPhone = document.getElementById("edit-spec-assist-phone").value.trim();
+  saveData(); renderAll(); closeModals();
+}
+
+function openNewIntervalModal(editId) {
+  const v = currentVehicle(); if (!v) return;
+  editingIntervalId = editId || null;
+  document.getElementById("ni-modal-title").innerText = editId ? "Intervall bearbeiten" : "Intervall anlegen";
+  if (editId) {
+    const inv = v.intervals.find(x => x.id === editId);
+    if (!inv) return;
+    document.getElementById("input-ni-title").value = inv.title;
+    document.getElementById("input-ni-cat").value = inv.cat;
+    document.getElementById("input-ni-km").value = inv.maxKm || "";
+    document.getElementById("input-ni-m").value = inv.maxM || "";
+    document.getElementById("input-ni-lastkm").value = inv.lastKm || "";
+    document.getElementById("input-ni-lastdate").value = inv.lastDate || "";
+  } else {
+    ["input-ni-title", "input-ni-cat", "input-ni-km", "input-ni-m"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("input-ni-lastkm").value = v.km;
+    document.getElementById("input-ni-lastdate").value = todayISO();
+  }
+  document.getElementById("modal-new-inv").classList.add("open");
+}
+
+function saveNewInterval() {
+  const v = currentVehicle(); if (!v) return;
+  const title = document.getElementById("input-ni-title").value.trim();
+  const cat = document.getElementById("input-ni-cat").value.trim() || "Service";
+  const maxKm = Math.max(0, Math.round(num(document.getElementById("input-ni-km").value)));
+  const maxM = Math.max(0, Math.round(num(document.getElementById("input-ni-m").value)));
+  const lastKm = Math.max(0, Math.round(num(document.getElementById("input-ni-lastkm").value)));
+  const lastDate = document.getElementById("input-ni-lastdate").value;
+
+  if (!title) return alert("Bitte Bezeichnung angeben!");
+
+  if (editingIntervalId) {
+    const inv = v.intervals.find(x => x.id === editingIntervalId);
+    if (inv) {
+      inv.title = title; inv.cat = cat; inv.maxKm = maxKm; inv.maxM = maxM;
+      inv.lastKm = lastKm; inv.lastDate = lastDate;
+    }
+  } else {
+    v.intervals.push({
+      id: "inv_" + Date.now(), title, cat, maxKm, maxM, lastKm, lastDate,
+      partsQuery: `${v.searchPrefix || v.name} ${title}`,
+      desc: maxKm ? `Alle ${fmtNum(maxKm)} km` : `Alle ${maxM} Monate`
+    });
+  }
+  saveData(); renderAll(); closeModals();
+}
+
+function deleteInterval(invId) {
+  openConfirm("Intervall löschen", "Möchtest du dieses Wartungsintervall wirklich entfernen?", () => {
+    const v = currentVehicle(); if (!v) return;
+    v.intervals = v.intervals.filter(x => x.id !== invId);
+    saveData(); renderAll();
+  });
+}
+
+function openCompleteServiceModal(invId) {
+  const v = currentVehicle(); if (!v) return;
+  const inv = v.intervals.find(x => x.id === invId);
+  activeIntervalId = invId;
+  document.getElementById("srv-modal-title").innerText = inv ? `Erledigt: ${inv.title}` : "Service eintragen";
+  document.getElementById("input-srv-custom-title").value = inv ? inv.title : "";
+  document.getElementById("input-srv-km").value = v.km;
+  document.getElementById("input-srv-date").value = todayISO();
+  document.getElementById("input-srv-cost").value = "";
+  document.getElementById("input-srv-note").value = "";
+  tempUploadedPhotosBase64 = [];
+  renderSrvPhotosPreview();
+  document.getElementById("modal-service").classList.add("open");
+}
+
+function saveServiceEntry() {
+  const v = currentVehicle(); if (!v) return;
+  const title = document.getElementById("input-srv-custom-title").value.trim();
+  const date = validDateOrToday(document.getElementById("input-srv-date").value);
+  const cost = Math.max(0, num(document.getElementById("input-srv-cost").value));
+  const km = Math.max(0, Math.round(num(document.getElementById("input-srv-km").value)));
+  const type = document.getElementById("input-srv-type").value;
+  const note = document.getElementById("input-srv-note").value.trim();
+
+  if (!title) return alert("Bitte Bezeichnung angeben!");
+
+  v.logs.unshift({
+    date, km, type, title, cost, note,
+    photo: tempUploadedPhotosBase64[0] || null,
+    photos: [...tempUploadedPhotosBase64]
+  });
+  v.logs.sort(byDateDesc);
+
+  if (activeIntervalId) {
+    const inv = v.intervals.find(x => x.id === activeIntervalId);
+    if (inv) {
+      inv.lastKm = km;
+      inv.lastDate = date;
+    }
+  }
+
+  if (km > v.km) v.km = km;
+  v.totalCost = sumLogCost(v);
+  saveData(); renderAll(); closeModals();
+}
+
+async function handleManualPhotoUpload(e) {
+  const files = e.target.files ? Array.from(e.target.files) : [];
+  e.target.value = "";
+  if (!files.length) return;
+
+  showLoading(`Verarbeite 1 von ${files.length}...`, "Foto-Upload");
+
+  for (let i = 0; i < Math.min(files.length, 25); i++) {
+    document.getElementById("ai-loading-text").textContent = `Optimiere Foto ${i + 1} von ${files.length}...`;
+    try {
+      const img = await fileToImage(files[i]);
+      const b64 = drawScaled(img, 1000, 0.65);
+      tempUploadedPhotosBase64.push(b64);
+    } catch (err) {
+      console.warn("Fehler bei Bild:", err);
+    }
+  }
+
+  hideLoading();
+  renderSrvPhotosPreview();
+}
+
+function renderSrvPhotosPreview() {
+  const box = document.getElementById("srv-photos-preview");
+  if (!tempUploadedPhotosBase64.length) {
+    box.innerHTML = "";
+    return;
+  }
+  box.innerHTML = tempUploadedPhotosBase64.map((src, i) => `
+    <div style="position:relative; display:inline-block;">
+      <img src="${src}" class="preview-thumb" onclick="openViewer('${src}')">
+      <span onclick="tempUploadedPhotosBase64.splice(${i},1); renderSrvPhotosPreview();" style="position:absolute; top:-4px; right:-4px; background:rgba(255,59,48,0.9); color:#fff; border-radius:50%; width:18px; height:18px; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:pointer;">×</span>
+    </div>
+  `).join("") + `<div style="width:100%; font-size:11px; color:var(--green); margin-top:4px;">${tempUploadedPhotosBase64.length} Foto(s) hinzugefügt</div>`;
+}
+
+function openPartsModal(invId) {
+  const v = currentVehicle(); if (!v) return;
+  const inv = v.intervals.find(x => x.id === invId);
+  const q = encodeURIComponent((inv && inv.partsQuery) ? inv.partsQuery : `${v.name} ${inv ? inv.title : ''}`);
+  document.getElementById("parts-modal-subtitle").innerText = (inv ? inv.title : "Ersatzteile") + ` für ${v.name}`;
+  document.getElementById("parts-links-container").innerHTML = `
+    <a href="https://www.autodoc.de/search?keyword=${q}" target="_blank" class="btn-action btn-action-primary" style="text-decoration:none;"><i class="ph-bold ph-arrow-square-out"></i> Auf Autodoc suchen</a>
+    <a href="https://www.daparto.de/Teile/${q}" target="_blank" class="btn-action" style="text-decoration:none;"><i class="ph-bold ph-arrow-square-out"></i> Auf Daparto vergleichen</a>
+    <a href="https://www.ebay.de/sch/i.html?_nkw=${q}" target="_blank" class="btn-action" style="text-decoration:none;"><i class="ph-bold ph-arrow-square-out"></i> Auf eBay finden</a>
+  `;
+  document.getElementById("modal-parts").classList.add("open");
+}
+
+function openFuelModal() {
+  const v = currentVehicle(); if (!v) return;
+  document.getElementById("input-fuel-date").value = todayISO();
+  document.getElementById("input-fuel-km").value = v.km;
+  document.getElementById("input-fuel-liters").value = "";
+  document.getElementById("input-fuel-cost").value = "";
+  document.getElementById("fuel-calc-preview").innerText = "Ø Preis: - € / Liter";
+  document.getElementById("modal-fuel").classList.add("open");
+}
+
+function calculateFuelPricePerLiter() {
+  const l = num(document.getElementById("input-fuel-liters").value);
+  const c = num(document.getElementById("input-fuel-cost").value);
+  const el = document.getElementById("fuel-calc-preview");
+  if (l > 0 && c > 0) el.innerText = `Ø Preis: ${(c / l).toFixed(3)} € / Liter`;
+  else el.innerText = "Ø Preis: - € / Liter";
+}
+
+function saveFuelEntry() {
+  const v = currentVehicle(); if (!v) return;
+  const date = validDateOrToday(document.getElementById("input-fuel-date").value);
+  const km = Math.max(0, Math.round(num(document.getElementById("input-fuel-km").value)));
+  const liters = num(document.getElementById("input-fuel-liters").value);
+  const cost = num(document.getElementById("input-fuel-cost").value);
+  const isFull = document.getElementById("input-fuel-full").checked;
+
+  if (liters <= 0 || cost <= 0) return alert("Bitte getankte Liter und Kosten angeben.");
+
+  v.fuels.unshift({ date, km, liters, cost, isFull });
+  v.fuels.sort(byDateDesc);
+  if (km > v.km) v.km = km;
+
+  saveData(); renderAll(); closeModals();
+}
+
+function deleteFuel(idx) {
+  openConfirm("Tankstopp löschen", "Möchtest du diesen Tankstopp wirklich löschen?", () => {
+    const v = currentVehicle(); if (!v) return;
+    v.fuels.splice(idx, 1);
+    saveData(); renderAll();
+  });
+}
+
+function deleteLog(idx) {
+  openConfirm("Eintrag löschen", "Möchtest du diesen Service-Eintrag aus der Historie löschen?", () => {
+    const v = currentVehicle(); if (!v) return;
+    v.logs.splice(idx, 1);
+    v.totalCost = sumLogCost(v);
+    saveData(); renderAll();
+  });
+}
+
+function openDeadlineModal() {
+  document.getElementById("input-dl-title").value = "";
+  document.getElementById("input-dl-date").value = todayISO();
+  document.getElementById("modal-deadline").classList.add("open");
+}
+
+function saveNewDeadline() {
+  const v = currentVehicle(); if (!v) return;
+  const title = document.getElementById("input-dl-title").value.trim();
+  const date = document.getElementById("input-dl-date").value;
+  if (!title || !date) return alert("Bitte Titel und Datum angeben.");
+  v.deadlines.push({ id: "dl_" + Date.now(), title, date });
+  v.deadlines.sort((a,b) => a.date.localeCompare(b.date));
+  saveData(); renderAll(); closeModals();
+}
+
+function deleteDeadline(id) {
+  const v = currentVehicle(); if (!v) return;
+  v.deadlines = v.deadlines.filter(x => x.id !== id);
+  saveData(); renderAll();
+}
+
+function toggleTireSeason() {
+  const v = currentVehicle(); if (!v) return;
+  v.tires.currentSeason = v.tires.currentSeason === "Sommer" ? "Winter" : "Sommer";
+  saveData(); renderAll();
+}
+
+function openVehPhotoChoiceModal() { document.getElementById("modal-veh-photo-choice").classList.add("open"); }
+function handleVehPhotoUpload(e) {
+  const file = takeFile(e); if (!file) return;
+  fileToImage(file).then(img => {
+    closeModals();
+    openCropModal(img);
+  });
+}
+
+function openCropModal(img) {
+  cropRawImage = img; cropZoom = 1; cropPanX = 0; cropPanY = 0;
+  document.getElementById("crop-zoom").value = "1";
+  document.getElementById("modal-crop").classList.add("open");
+  setupCropDrag();
+  renderCropCanvas();
+}
+
+function setupCropDrag() {
+  const box = document.getElementById("crop-viewport");
+  box.onpointerdown = (e) => {
+    isDraggingCrop = true;
+    cropStartX = e.clientX - cropPanX;
+    cropStartY = e.clientY - cropPanY;
+    box.setPointerCapture(e.pointerId);
+  };
+  box.onpointermove = (e) => {
+    if (!isDraggingCrop) return;
+    cropPanX = e.clientX - cropStartX;
+    cropPanY = e.clientY - cropStartY;
+    renderCropCanvas();
+  };
+  box.onpointerup = () => { isDraggingCrop = false; };
+  box.onpointercancel = () => { isDraggingCrop = false; };
+}
+
+function onCropZoomChange(val) { cropZoom = parseFloat(val); renderCropCanvas(); }
+
+function renderCropCanvas() {
+  if (!cropRawImage) return;
+  const canvas = document.getElementById("crop-canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const w = cropRawImage.width * cropZoom * 0.5;
+  const h = cropRawImage.height * cropZoom * 0.5;
+  const cx = canvas.width / 2 + cropPanX;
+  const cy = canvas.height / 2 + cropPanY;
+  ctx.drawImage(cropRawImage, cx - w/2, cy - h/2, w, h);
+}
+
+function applyCroppedImage() {
+  const canvas = document.getElementById("crop-canvas");
+  const v = currentVehicle();
+  if (v) {
+    v.image = canvas.toDataURL("image/jpeg", 0.85);
+    saveData();
+    renderAll();
+  }
+  closeModals();
+}
+
+function deleteVehPhoto() {
+  openConfirm("Foto entfernen", "Möchtest du das Titelbild deines Fahrzeugs löschen?", () => {
+    const v = currentVehicle(); if (!v) return;
+    v.image = null; saveData(); renderAll();
+  });
+}
+
+function openViewer(src) {
+  if (!src) return;
+  document.getElementById("viewer-img").src = src;
+  document.getElementById("modal-viewer").classList.add("open");
+}
+function closeViewer() { document.getElementById("modal-viewer").classList.remove("open"); }
+
+function openConfirm(title, text, cb) {
+  document.getElementById("confirm-modal-title").innerHTML = `<i class="ph-fill ph-warning-circle"></i> ${esc(title)}`;
+  document.getElementById("confirm-modal-text").innerText = text;
+  document.getElementById("btn-confirm-action").onclick = () => { closeModals(); if (cb) cb(); };
+  document.getElementById("modal-confirm").classList.add("open");
+}
+
+function deleteCurrentVehicle() {
+  const v = currentVehicle(); if (!v) return;
+  openConfirm("Fahrzeug löschen", `Möchtest du "${v.name}" unwiderruflich aus der Garage entfernen?`, () => {
+    delete appData[v.id];
+    currentVehId = Object.keys(appData)[0] || null;
+    saveData();
+    renderAll();
+  });
+}
+
+function exportData() {
+  const strData = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+  const dlAnchor = document.createElement("a");
+  dlAnchor.setAttribute("href", strData);
+  dlAnchor.setAttribute("download", `garage_backup_${todayISO()}.json`);
+  dlAnchor.click();
+}
+
+function importData(e) {
+  const file = takeFile(e); if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const parsed = normalizeAppData(JSON.parse(evt.target.result));
+      if (parsed && Object.keys(parsed).length) {
+        appData = parsed;
+        currentVehId = Object.keys(appData)[0];
+        saveData();
+        renderAll();
+        alert("Backup erfolgreich wiederhergestellt!");
+      } else {
+        alert("Ungültige Backup-Datei.");
+      }
+    } catch (err) {
+      alert("Fehler beim Import: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// =====================================================================
+// RENDERING
+// =====================================================================
+
+function renderTabs(keys) {
+  document.getElementById("vehicle-tabs-container").innerHTML = keys.map(k => `
+    <button class="tab-btn${k === currentVehId ? " active" : ""}" onclick="switchVehicle('${k}')">
+      <i class="${esc(appData[k].icon)}"></i><span>${esc(appData[k].name)}</span>
+    </button>`).join("") + '<button class="tab-btn tab-btn-add" onclick="openNewVehModal()"><i class="ph-bold ph-plus"></i></button>';
+}
+
+function renderHero(v, fuelStats) {
+  const imgHtml = v.image ? `
+    <div class="veh-img-container">
+      <img src="${esc(v.image)}" class="veh-hero-img" onclick="openViewer('${esc(v.image)}')">
+      <button class="btn-img-edit" onclick="openVehPhotoChoiceModal()"><i class="ph ph-camera"></i> Ändern</button>
+      <button class="btn-img-del" onclick="deleteVehPhoto()"><i class="ph ph-trash"></i></button>
+    </div>` : `
+    <div class="veh-img-placeholder" onclick="openVehPhotoChoiceModal()">
+      <i class="ph ph-camera" style="font-size:26px; color:var(--primary);"></i>
+      <span>Fahrzeug-Foto hinzufügen</span>
+    </div>`;
+
+  return imgHtml + `
+    <div class="vehicle-header-row">
+      <div><div class="vehicle-title">${esc(v.name)}</div><div class="vehicle-sub">${esc(v.sub)}</div></div>
+      <button class="btn-edit-km" onclick="openKmModal()"><i class="ph-bold ph-pencil-simple"></i> ${fmtNum(v.km)} km</button>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-box"><div class="kpi-val">${fmtNum(v.km)}</div><div class="kpi-label">Kilometer</div></div>
+      <div class="kpi-box"><div class="kpi-val" style="color:var(--green);">${fuelStats.avgConsumption !== null ? fuelStats.avgConsumption.toFixed(1) + ' l' : 'Aktiv'}</div><div class="kpi-label">${fuelStats.avgConsumption !== null ? 'Ø Verbrauch' : 'Status'}</div></div>
+      <div class="kpi-box"><div class="kpi-val">${(num(v.totalCost) + fuelStats.totalFuelCost).toFixed(0)} €</div><div class="kpi-label">Gesamtkosten</div></div>
+    </div>`;
+}
+
+function renderPlan(v) {
+  return `<button class="btn-smart-scan" onclick="document.getElementById('modal-scan-choice').classList.add('open')"><i class="ph-fill ph-sparkle"></i> KI Beleg- & Tacho-Scan (Mehrfachauswahl)</button>
+  <div class="section-header">
+    <span>Wartungsplan</span>
+    <button class="section-header-btn" onclick="openNewIntervalModal()"><i class="ph-bold ph-plus"></i> Intervall</button>
+  </div>` +
+  v.intervals.map(inv => {
+    const st = getIntervalStatus(inv, v);
+    const fillClass = st.isUrgent ? 'fill-urg' : (st.pct > 75 ? 'fill-warn' : 'fill-ok');
+    return `<div class="card">
+      <div class="card-header">
+        <div><div class="card-title">${esc(inv.title)}</div><div class="card-sub">${esc(inv.desc || inv.cat)}</div></div>
+        <button class="btn-action-icon" style="background:none; border:none; color:var(--text-muted); cursor:pointer;" onclick="deleteInterval('${inv.id}')"><i class="ph ph-trash"></i></button>
+      </div>
+      <div class="prog-bg"><div class="prog-fill ${fillClass}" style="width:${st.pct}%;"></div></div>
+      <div class="prog-info">
+        <span>${st.kmRest !== null ? (st.kmRest <= 0 ? 'Überfällig!' : 'Noch ' + fmtNum(st.kmRest) + ' km') : (st.daysRest !== null ? (st.daysRest <= 0 ? 'Fällig!' : 'Noch ' + st.daysRest + ' Tage') : 'Aktiv')}</span>
+        <span>${st.pct.toFixed(0)}%</span>
+      </div>
+      <div class="card-actions">
+        <button class="btn-action btn-action-primary" onclick="openCompleteServiceModal('${inv.id}')"><i class="ph-bold ph-check"></i> Erledigt</button>
+        <button class="btn-action" onclick="openPartsModal('${inv.id}')"><i class="ph-bold ph-shopping-cart"></i> Teile</button>
+        <button class="btn-action btn-action-icon" onclick="openNewIntervalModal('${inv.id}')"><i class="ph-bold ph-pencil-simple"></i></button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderHist(v) {
+  const logsHtml = (v.logs || []).map((l, idx) => {
+    const allPhotos = Array.isArray(l.photos) && l.photos.length ? l.photos : (l.photo ? [l.photo] : []);
+    const photoThumbs = allPhotos.map(p => `<img src="${esc(p)}" class="list-thumb" onclick="openViewer('${esc(p)}')">`).join("");
+
+    return `
+    <div class="list-item">
+      <div class="list-icon"><i class="ph-fill ph-wrench"></i></div>
+      <div class="list-body">
+        <div class="list-title">${esc(l.title)}</div>
+        <div class="list-sub">${esc(l.date)} • ${fmtNum(l.km)} km ${l.note ? '• ' + esc(l.note) : ''}</div>
+        ${allPhotos.length > 1 ? `<div style="display:flex; gap:6px; margin-top:6px; overflow-x:auto;">${photoThumbs}</div>` : ''}
+      </div>
+      <div class="list-right">
+        ${allPhotos.length === 1 ? `<img src="${esc(allPhotos[0])}" class="list-thumb" onclick="openViewer('${esc(allPhotos[0])}')">` : ''}
+        <strong style="font-size:14px; white-space:nowrap;">${l.cost > 0 ? l.cost.toFixed(2) + ' €' : 'Kostenlos'}</strong>
+        <button class="btn-icon" style="padding:4px;" onclick="deleteLog(${idx})"><i class="ph ph-trash"></i></button>
+      </div>
+    </div>`;
+  }).join("");
+
+  return `
+    <div class="section-header">
+      <span>Service-Historie</span>
+      <button class="section-header-btn" onclick="openCompleteServiceModal(null)"><i class="ph-bold ph-plus"></i> Eintrag</button>
+    </div>
+    <div class="card">${logsHtml || '<div class="empty-note">Noch keine Service-Einträge hinterlegt.</div>'}</div>
+    <button class="btn-action" style="width:100%; margin-top:8px;" onclick="window.print()"><i class="ph-bold ph-printer"></i> Serviceheft drucken / PDF</button>
+  `;
+}
+
+function renderFuel(v) {
+  const stats = calculateFuelStats(v);
+  const fuelListHtml = (v.fuels || []).map((f, idx) => `
+    <div class="list-item">
+      <div class="list-icon"><i class="ph-fill ph-gas-pump"></i></div>
+      <div class="list-body">
+        <div class="list-title">${f.liters.toFixed(1)} Liter ${f.isFull ? '• Voll' : ''}</div>
+        <div class="list-sub">${esc(f.date)} • ${fmtNum(f.km)} km • ${(f.cost / f.liters).toFixed(3)} €/L</div>
+      </div>
+      <div class="list-right">
+        <strong style="font-size:14px; white-space:nowrap;">${f.cost.toFixed(2)} €</strong>
+        <button class="btn-icon" style="padding:4px;" onclick="deleteFuel(${idx})"><i class="ph ph-trash"></i></button>
+      </div>
+    </div>`).join("");
+
+  return `
+    <div class="section-header">
+      <span>Tankbuch</span>
+      <button class="section-header-btn" onclick="openFuelModal()"><i class="ph-bold ph-plus"></i> Tanken</button>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-box"><div class="kpi-val">${stats.avgConsumption ? stats.avgConsumption.toFixed(2) + ' L' : '-'}</div><div class="kpi-label">Ø 100 km</div></div>
+      <div class="kpi-box"><div class="kpi-val">${stats.lastPricePerLiter ? stats.lastPricePerLiter + ' €' : '-'}</div><div class="kpi-label">Letzter Preis</div></div>
+      <div class="kpi-box"><div class="kpi-val">${stats.totalFuelCost.toFixed(0)} €</div><div class="kpi-label">Gesamt Tanken</div></div>
+    </div>
+    <div class="card">${fuelListHtml || '<div class="empty-note">Noch keine Tankstopps erfasst.</div>'}</div>
+  `;
+}
+
+function renderCharts(v) {
+  return `
+    <div class="section-header"><span>Auswertungen</span></div>
+    <div class="card">
+      <div class="card-title">Kosten nach Kategorie</div>
+      <div class="chart-container"><canvas id="chart-cat"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Monatliche Kosten</div>
+      <div class="chart-container"><canvas id="chart-month"></canvas></div>
+    </div>
+  `;
+}
+
+function initStatsCharts(v) {
+  const catCanvas = document.getElementById("chart-cat");
+  const monthCanvas = document.getElementById("chart-month");
+  if (!catCanvas || !monthCanvas) return;
+
+  if (chartCategoryInstance) chartCategoryInstance.destroy();
+  if (chartMonthlyInstance) chartMonthlyInstance.destroy();
+
+  const catSums = {};
+  (v.logs || []).forEach(l => { catSums[l.type] = (catSums[l.type] || 0) + (num(l.cost) || 0); });
+  const fuelStats = calculateFuelStats(v);
+  if (fuelStats.totalFuelCost > 0) catSums["Kraftstoff"] = fuelStats.totalFuelCost;
+
+  chartCategoryInstance = new Chart(catCanvas, {
+    type: "doughnut",
+    data: {
+      labels: Object.keys(catSums).length ? Object.keys(catSums) : ["Keine Daten"],
+      datasets: [{
+        data: Object.keys(catSums).length ? Object.values(catSums) : [1],
+        backgroundColor: ["#0a84ff", "#32d74b", "#ff9f0a", "#bf5af2", "#ff453a", "#5ac8fa"],
+        borderWidth: 0
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { color: "#9499ad", font: { size: 11 } } } } }
+  });
+
+  const monthSums = {};
+  (v.logs || []).forEach(l => { const m = l.date.slice(0, 7); monthSums[m] = (monthSums[m] || 0) + (num(l.cost) || 0); });
+  (v.fuels || []).forEach(f => { const m = f.date.slice(0, 7); monthSums[m] = (monthSums[m] || 0) + (num(f.cost) || 0); });
+  const sortedMonths = Object.keys(monthSums).sort().slice(-6);
+
+  chartMonthlyInstance = new Chart(monthCanvas, {
+    type: "bar",
+    data: {
+      labels: sortedMonths.length ? sortedMonths : ["Aktuell"],
+      datasets: [{
+        label: "Ausgaben (€)",
+        data: sortedMonths.length ? sortedMonths.map(m => monthSums[m]) : [0],
+        backgroundColor: "rgba(10, 132, 255, 0.75)",
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#9499ad", font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: "#9499ad", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.06)" } }
+      }
+    }
+  });
+}
+
+function renderVehicle(v) {
+  const ssn = v.tires.currentSeason === "Winter" ? v.tires.winter : v.tires.summer;
+  const deadlinesHtml = (v.deadlines || []).map(d => `
+    <div class="info-row">
+      <span class="info-label">${esc(d.title)}</span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="info-val">${esc(d.date)}</span>
+        <button class="btn-icon" onclick="deleteDeadline('${d.id}')"><i class="ph ph-trash"></i></button>
+      </div>
+    </div>`).join("");
+
+  return `
+    <div class="section-header">
+      <span>Handschuhfach & Daten</span>
+      <button class="section-header-btn" onclick="openEditSpecsModal()"><i class="ph-bold ph-pencil-simple"></i> Ändern</button>
+    </div>
+    <div class="card">
+      <div class="info-row"><span class="info-label">HSN / TSN</span><span class="info-val">${esc(v.specs.hsn_tsn || '-')}</span></div>
+      <div class="info-row"><span class="info-label">Motoröl & Menge</span><span class="info-val">${esc(v.specs.oil || '-')}</span></div>
+      <div class="info-row"><span class="info-label">Reifendruck</span><span class="info-val">${esc(v.specs.tirePressure || '-')}</span></div>
+      <div class="info-row"><span class="info-label">Batterietyp</span><span class="info-val">${esc(v.specs.battery || '-')}</span></div>
+      <div class="info-row"><span class="info-label">Versicherung</span><span class="info-val">${esc(v.specs.insurance || '-')}</span></div>
+      ${v.specs.insurancePhone ? `<div class="info-row"><span class="info-label">Notfall-Hotline</span><a href="tel:${esc(v.specs.insurancePhone)}" class="info-val" style="color:var(--primary); text-decoration:none;">${esc(v.specs.insurancePhone)}</a></div>` : ''}
+    </div>
+
+    <div class="section-header">
+      <span>Reifen (${v.tires.currentSeason})</span>
+      <button class="section-header-btn" onclick="toggleTireSeason()"><i class="ph-bold ph-arrows-left-right"></i> Wechseln</button>
+    </div>
+    <div class="card">
+      <div class="info-row"><span class="info-label">Reifendimension</span><span class="info-val">${esc(ssn.size)}</span></div>
+      <div class="info-row"><span class="info-label">Hersteller / Modell</span><span class="info-val">${esc(ssn.brand || '-')}</span></div>
+      <div class="info-row"><span class="info-label">Profiltiefe VA / HA</span><span class="info-val">${ssn.depthVA} mm / ${ssn.depthHA} mm</span></div>
+    </div>
+
+    <div class="section-header">
+      <span>Wichtige Termine</span>
+      <button class="section-header-btn" onclick="openDeadlineModal()"><i class="ph-bold ph-plus"></i> Termin</button>
+    </div>
+    <div class="card">${deadlinesHtml || '<div class="empty-note">Keine Termine hinterlegt.</div>'}</div>
+
+    <div class="section-header"><span>Verwaltung & Backup</span></div>
+    <div class="card">
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button class="btn-action" onclick="exportData()"><i class="ph-bold ph-download-simple"></i> Backup herunterladen (JSON)</button>
+        <button class="btn-action" onclick="document.getElementById('import-file').click()"><i class="ph-bold ph-upload-simple"></i> Backup importieren</button>
+        <button class="btn-action btn-danger" style="margin-top:10px;" onclick="deleteCurrentVehicle()"><i class="ph-bold ph-trash"></i> Dieses Fahrzeug löschen</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderAll() {
+  const keys = Object.keys(appData);
+  if (!currentVehId || !appData[currentVehId]) currentVehId = keys[0] || null;
+  const v = currentVehicle();
+  renderTabs(keys);
+  if (!v) {
+    document.getElementById("hero-area").innerHTML = `<div class="card"><div class="empty-note">Kein Fahrzeug ausgewählt. Tippe oben auf das Plus, um dein Fahrzeug anzulegen, oder stelle ein Backup wieder her.</div><button class="btn-action btn-action-primary" style="width:100%;" onclick="document.getElementById('import-file').click()"><i class="ph-bold ph-upload-simple"></i> Backup importieren</button></div>`;
+    document.getElementById("content-area").innerHTML = "";
+    return;
+  }
+  const fuelStats = calculateFuelStats(v);
+  document.getElementById("hero-area").innerHTML = renderHero(v, fuelStats);
+  
+  if (currentSubTab === "plan") document.getElementById("content-area").innerHTML = renderPlan(v);
+  else if (currentSubTab === "hist") document.getElementById("content-area").innerHTML = renderHist(v);
+  else if (currentSubTab === "fuel") document.getElementById("content-area").innerHTML = renderFuel(v);
+  else if (currentSubTab === "charts") {
+    document.getElementById("content-area").innerHTML = renderCharts(v);
+    requestAnimationFrame(() => initStatsCharts(v));
+  }
+  else if (currentSubTab === "vehicle") document.getElementById("content-area").innerHTML = renderVehicle(v);
+}
+
+// =====================================================================
+// KI-BELEG-SCAN (Multi-Upload bis 20+ Fotos)
+// =====================================================================
+
+async function processSmartScanFile(e) {
+  const files = e.target.files ? Array.from(e.target.files) : [];
+  e.target.value = "";
+  if (!files.length) return;
+
+  if (!apiKey) { alert("Bitte zuerst API-Key hinterlegen!"); openKeyModal(); return; }
+  showLoading(`Lese 1 von ${files.length} Seiten ein...`, "KI Beleg-Scan");
+  
+  try {
+    tempUploadedPhotosBase64 = [];
+    const parts = [];
+
+    for (let i = 0; i < Math.min(files.length, 25); i++) {
+      document.getElementById("ai-loading-text").textContent = `Komprimiere Beleg ${i + 1} von ${files.length}...`;
+      const img = await fileToImage(files[i]);
+      const compressedDataUrl = drawScaled(img, 1000, 0.65);
+      tempUploadedPhotosBase64.push(compressedDataUrl);
+      
+      // KORREKTUR: inlineData und mimeType in CamelCase gemäß Gemini REST-Spezifikation
+      parts.push({ 
+        inlineData: { 
+          mimeType: "image/jpeg", 
+          data: compressedDataUrl.split(",")[1] 
+        } 
+      });
+    }
+
+    document.getElementById("ai-loading-text").textContent = "Gemini KI analysiert alle Belege...";
+
+    const prompt = `Analysiere diese Rechnungs- bzw. Werkstattbeleg-Seiten (Mehrfachbeleg).
+Führe die Gesamtsumme und alle durchgeführten Arbeiten zusammen.
+Extrahiere als valides JSON:
+{
+  "type": "Wartung",
+  "title": "Kurze prägnante Zusammenfassung (z.B. Große Inspektion + Bremsen)",
+  "date": "YYYY-MM-DD",
+  "km": 150000,
+  "cost": 249.50,
+  "detectedTasks": ["Motoröl", "Bremsflüssigkeit"]
+}`;
+    parts.push({ text: prompt });
+
+    // KORREKTUR: responseMimeType in CamelCase
+    const parsed = await callAiJson({
+      contents: [{ parts: parts }],
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    hideLoading();
+    openAiResultModal(parsed);
+  } catch (err) {
+    hideLoading();
+    alert("Fehler bei der Beleganalyse: " + err.message);
+  }
+}
+
+function openAiResultModal(p) {
+  const v = currentVehicle();
+  document.getElementById("ai-res-type").value = LOG_TYPES.includes(p.type) ? p.type : "Wartung";
+  document.getElementById("ai-res-title").value = str(p.title) || "Inspektion";
+  document.getElementById("ai-res-date").value = validDateOrToday(p.date);
+  document.getElementById("ai-res-cost").value = p.cost ? num(p.cost) : "";
+  document.getElementById("ai-res-km").value = p.km ? Math.round(num(p.km)) : (v ? v.km : "");
+
+  // Erkannte Arbeiten im Hinweisfeld anzeigen
+  const msgEl = document.getElementById("ai-assistant-message");
+  if (Array.isArray(p.detectedTasks) && p.detectedTasks.length) {
+    msgEl.style.display = "block";
+    msgEl.innerHTML = `<strong>Erkannte Positionen:</strong> ${p.detectedTasks.map(esc).join(", ")}`;
+  } else {
+    msgEl.style.display = "none";
+  }
+
+  // Intervallauswahl mit intelligentem Auto-Match
+  const sel = document.getElementById("ai-res-interval");
+  sel.innerHTML = '<option value="">-- Kein Intervall zurücksetzen --</option>';
+  let matchedId = null;
+
+  if (v) {
+    (v.intervals || []).forEach(inv => {
+      let isMatch = false;
+      if (Array.isArray(p.detectedTasks)) {
+        isMatch = p.detectedTasks.some(t => inv.title.toLowerCase().includes(String(t).toLowerCase()) || String(t).toLowerCase().includes(inv.cat.toLowerCase()));
+      }
+      if (!isMatch && p.title) {
+        isMatch = inv.title.toLowerCase().includes(p.title.toLowerCase()) || p.title.toLowerCase().includes(inv.title.toLowerCase());
+      }
+      if (isMatch && !matchedId) matchedId = inv.id;
+      sel.innerHTML += `<option value="${inv.id}">${esc(inv.title)}${isMatch ? " (Erkannt)" : ""}</option>`;
+    });
+    if (matchedId) sel.value = matchedId;
+  }
+
+  document.getElementById("ai-photo-count").innerText = tempUploadedPhotosBase64.length;
+  const pBox = document.getElementById("ai-res-photos-container");
+  pBox.innerHTML = tempUploadedPhotosBase64.map(src => `<img src="${src}" class="preview-thumb" onclick="openViewer('${src}')">`).join("");
+
+  document.getElementById("modal-ai-result").classList.add("open");
+}
+
+function applyAiResult() {
+  const v = currentVehicle(); if (!v) return;
+  const title = document.getElementById("ai-res-title").value.trim() || "Wartung";
+  const date = validDateOrToday(document.getElementById("ai-res-date").value);
+  const cost = Math.max(0, num(document.getElementById("ai-res-cost").value));
+  const km = Math.max(0, Math.round(num(document.getElementById("ai-res-km").value)));
+  const type = document.getElementById("ai-res-type").value;
+  const invId = document.getElementById("ai-res-interval").value;
+
+  v.logs.unshift({
+    date, km, type, title, cost, note: "Erfasst per KI-Scan",
+    photo: tempUploadedPhotosBase64[0] || null,
+    photos: [...tempUploadedPhotosBase64]
+  });
+  v.logs.sort(byDateDesc);
+
+  if (invId) {
+    const inv = v.intervals.find(x => x.id === invId);
+    if (inv) { inv.lastKm = km; inv.lastDate = date; }
+  }
+
+  if (km > v.km) v.km = km;
+  v.totalCost = sumLogCost(v);
+  saveData(); renderAll(); closeModals();
+}
+
+function takeFile(e) { const f = e.target.files && e.target.files[0]; e.target.value = ""; return f || null; }
+function fileToImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Datei unlesbar"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Bild unlesbar"));
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function drawScaled(img, maxDim, quality) {
+  let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const scale = Math.min(1, maxDim / Math.max(w, h));
+  w = Math.max(1, Math.round(w * scale)); h = Math.max(1, Math.round(h * scale));
+  const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+function startLiveCamera(target) {
+  const map = {
+    "smart-scan": "input-smart-cam-fallback",
+    "schein-scan": "input-schein-photo-fallback",
+    "veh-photo": "input-veh-photo-fallback"
+  };
+  const el = document.getElementById(map[target]);
+  if (el) el.click();
+}
+
+// Initialisierung beim Start
+window.addEventListener("DOMContentLoaded", () => {
+  loadKbaDatabase();
+  const savedTheme = lsGet(THEME_STORAGE);
+  if (savedTheme) {
+    try {
+      const t = JSON.parse(savedTheme);
+      setTheme(t.name, t.primary, t.fade, document.querySelector(`[data-theme="${t.name}"]`));
+    } catch (e) { }
+  }
+  updateKeyIndicator();
+  renderAll();
+});
+  </script>
+</body>
+</html>
