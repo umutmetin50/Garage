@@ -255,9 +255,15 @@
   <div class="modal-backdrop" id="modal-new-veh">
     <div class="modal-card">
       <div class="modal-title"><i class="ph-fill ph-car"></i> Fahrzeug anlegen</div>
+      <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:16px; padding:16px; margin-bottom:12px;">
+        <div style="font-size:13px; font-weight:600; color:var(--primary); margin-bottom:8px;"><i class="ph-bold ph-magnifying-glass"></i> Fahrzeug suchen</div>
+        <p style="font-size:11px; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">Marke, Modell, Baujahr, Motor – alles, was du weißt. Die KI zeigt dir passende Fahrzeuge zur Auswahl.</p>
+        <input type="text" id="input-search-text" class="form-input" placeholder="z. B. Ford S-Max 2012 Diesel" enterkeyhint="search" style="padding:10px; font-size:14px; margin-bottom:10px;" onkeydown="if(event.key==='Enter'){event.preventDefault();searchVehicleByText();}">
+        <button type="button" onclick="searchVehicleByText()" class="btn-action btn-action-primary" style="width:100%; font-size:12px;"><i class="ph-bold ph-sparkle"></i> Vorschläge anzeigen</button>
+      </div>
       <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:16px; padding:16px; margin-bottom:16px;">
-        <div style="font-size:13px; font-weight:600; color:var(--primary); margin-bottom:8px;"><i class="ph-fill ph-database"></i> KBA-Datenbank (Lokal & Online)</div>
-        <p style="font-size:11px; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">Liest HSN/TSN sekundenschnell aus der lokalen <code>kba_db.json</code> aus und generiert den Wartungsplan per KI.</p>
+        <div style="font-size:13px; font-weight:600; color:var(--primary); margin-bottom:8px;"><i class="ph-fill ph-database"></i> Oder per Fahrzeugschein (HSN/TSN)</div>
+        <p style="font-size:11px; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">Felder 2.1 und 2.2 eintippen oder den Fahrzeugschein mit der Kamera scannen.</p>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
           <div style="flex:1;"><input type="text" id="input-lookup-hsn" class="form-input" placeholder="HSN (2.1)" maxlength="4" style="padding:10px; text-transform:uppercase; font-size:13px; text-align:center;"></div>
           <div style="flex:1;"><input type="text" id="input-lookup-tsn" class="form-input" placeholder="TSN (2.2)" maxlength="8" style="padding:10px; text-transform:uppercase; font-size:13px; text-align:center;"></div>
@@ -896,6 +902,59 @@ Antworte AUSSCHLIESSLICH im validen JSON-Format:
   }
 }
 
+async function searchVehicleByText() {
+  const query = document.getElementById("input-search-text").value.trim();
+  if (!query) { alert("Bitte gib ein, was du über das Fahrzeug weißt, z. B. Marke, Modell und Baujahr."); return; }
+  if (!apiKey) { alert("Bitte trage zuerst oben rechts über 'API-Key' deinen Gemini-Key ein!"); openKeyModal(); return; }
+
+  showLoading("Suche passende Fahrzeuge...", "KI-Fahrzeugsuche");
+  try {
+    const searchPrompt = `Du bist ein Kfz-Experte für den deutschen Automarkt.
+Der Nutzer beschreibt sein Fahrzeug mit diesen Stichworten: ${JSON.stringify(query)}
+
+Aufgabe: Nenne bis zu 8 real existierende Fahrzeugvarianten, die zu diesen Stichworten passen.
+- Jede Variante = konkretes Modell mit Baureihe/Generation und genauer Motorisierung.
+- Ist ein Baujahr genannt, nur Varianten, die in diesem Jahr gebaut wurden.
+- Sind Kraftstoff, Leistung oder Karosserie genannt, nur passende Varianten.
+- Sortiere nach Wahrscheinlichkeit (häufigste Variante zuerst).
+- Erfinde nichts. Wenn die Stichworte zu keinem echten Fahrzeug passen, gib eine leere Liste zurück.
+
+Antworte AUSSCHLIESSLICH im validen JSON-Format:
+{
+  "candidates": [
+    {
+      "name": "Marke Modell Motor (Baureihe)",
+      "sub": "Baujahre • Hubraum & Motorbezeichnung • kW / PS",
+      "fuelType": "Diesel"
+    }
+  ]
+}`;
+
+    const parsed = await callAiJson({
+      contents: [{ parts: [{ text: searchPrompt }] }],
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const candidates = (parsed && Array.isArray(parsed.candidates) ? parsed.candidates : [])
+      .filter(c => isPlainObject(c) && str(c.name).trim())
+      .slice(0, 8)
+      .map(c => ({ name: str(c.name).trim(), sub: str(c.sub).trim(), fuelType: str(c.fuelType).trim() }));
+
+    hideLoading();
+    if (!candidates.length) {
+      alert("Zu deiner Eingabe wurde kein passendes Fahrzeug gefunden. Versuch es mit anderen Stichworten, z. B. Marke + Modell + Baujahr.");
+      return;
+    }
+    pendingAiCandidates = candidates;
+    renderCandidateList(candidates);
+    document.getElementById("modal-nv-candidates").classList.add("open");
+  } catch (err) {
+    if (!aiUserCancelled) alert("Fehler bei der Suche: " + err.message);
+  } finally {
+    hideLoading();
+  }
+}
+
 async function selectCandidateAndFetchSpecs(index) {
   closeCandidatesModal();
   const cand = pendingAiCandidates[index];
@@ -1010,7 +1069,7 @@ async function processScheinPhoto(e) {
 }
 
 function openNewVehModal() {
-  ["input-nv-name", "input-nv-sub", "input-nv-km", "input-lookup-hsn", "input-lookup-tsn"].forEach(id => { document.getElementById(id).value = ""; });
+  ["input-search-text", "input-nv-name", "input-nv-sub", "input-nv-km", "input-lookup-hsn", "input-lookup-tsn"].forEach(id => { document.getElementById(id).value = ""; });
   document.getElementById("nv-ai-preview").style.display = "none";
   pendingAiVehicleData = null;
   pendingAiCandidates = null;
