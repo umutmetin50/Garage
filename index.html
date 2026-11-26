@@ -450,7 +450,8 @@ const STORAGE_KEY = "garage_ai_pro_glass_v9";
 const API_KEY_STORAGE = "gemini_api_key_v1";
 const THEME_STORAGE = "app_theme";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const AI_TIMEOUT_MS = 60000;
+const AI_TIMEOUT_MS = 50000;          // max. Wartezeit pro KI-Anfrage
+const AI_MAX_MODEL_TRIES = 3;          // höchstens 3 Modelle nacheinander probieren
 const LOG_TYPES = ["Wartung", "Reparatur", "Karosserie/Lack", "Teiletausch", "Fixkosten"];
 const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
 const EXCLUDE_MODEL_RE = /(image|tts|live|audio|embed|imagen|veo|robotics|computer|aqa|gemma|learnlm|nano|banana|exp)/i;
@@ -584,7 +585,7 @@ function rankGeminiModels(names) {
   names.forEach(n => {
     if (!/^gemini-/.test(n) || EXCLUDE_MODEL_RE.test(n)) return;
     const m = /^gemini-(\d+(?:\.\d+)?)-flash(-lite)?(-preview.*)?$/.exec(n);
-    if (m) scored.push({ n: n, s: parseFloat(m[1]) * 100 - (m[2] ? 30 : 0) });
+    if (m) scored.push({ n: n, s: parseFloat(m[1]) * 100 - (m[2] ? 30 : 0) - (m[3] ? 60 : 0) });
     else if (/flash/.test(n)) rest.push(n);
   });
   scored.sort((a, b) => b.s - a.s);
@@ -702,13 +703,14 @@ async function getModelCandidates(signal) {
 
 function cancelAiRequest() { aiUserCancelled = true; if (aiController) aiController.abort(); hideLoading(); }
 
-async function executeGeminiRequest(bodyPayload) {
+async function executeGeminiRequest(bodyPayload, timeoutMs) {
   aiUserCancelled = false;
   const controller = new AbortController();
   aiController = controller;
-  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs || AI_TIMEOUT_MS);
   try {
-    const candidates = await getModelCandidates(controller.signal);
+    const candidates = (await getModelCandidates(controller.signal)).slice(0, AI_MAX_MODEL_TRIES);
     let lastError = null;
     for (const model of candidates) {
       const resp = await fetch(GEMINI_BASE + "/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey), {
@@ -718,8 +720,15 @@ async function executeGeminiRequest(bodyPayload) {
       try { data = await resp.json(); } catch (e) { }
       if (resp.ok && data) return data;
       lastError = (data && data.error && data.error.message) || ("HTTP " + resp.status);
+      if (resp.status === 400 && /api key/i.test(lastError)) throw new Error("Der API-Key ist ungültig. Bitte oben rechts prüfen.");
     }
     throw new Error(lastError || "Verbindung fehlgeschlagen.");
+  } catch (e) {
+    if (e && e.name === "AbortError") {
+      if (aiUserCancelled) throw new Error("Abgebrochen.");
+      if (timedOut) { const t = new Error("Zeitüberschreitung: Die KI hat zu lange gebraucht."); t.isTimeout = true; throw t; }
+    }
+    throw e;
   } finally {
     clearTimeout(timer);
     if (aiController === controller) aiController = null;
@@ -763,6 +772,8 @@ async function callAiJsonWithSearch(promptText) {
   } catch (e) {
     if (aiUserCancelled) throw e;
     console.warn("Internetsuche nicht möglich, nutze KI-Wissen:", e);
+    const lt = document.getElementById("ai-loading-text");
+    if (lt) lt.textContent = "Internetsuche nicht möglich – frage die KI direkt...";
   }
   const fallback = await callAiJson({
     contents: [{ parts: [{ text: promptText }] }],
