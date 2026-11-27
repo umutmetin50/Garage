@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.9</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.0</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -885,7 +885,8 @@ async function callAiJsonWithSearch(promptText) {
   try {
     const resData = await executeGeminiRequest({
       contents: [{ parts: [{ text: promptText + "\n\nWICHTIG: Prüfe die Angaben vorher mit der Google-Suche anhand seriöser Quellen (Hersteller, Fachportale, Teilehändler). Antworte am Ende NUR mit dem JSON-Objekt, ohne weiteren Text." }] }],
-      tools: [{ google_search: {} }]
+      tools: [{ google_search: {} }],
+      generationConfig: { temperature: 0 }
     }, AI_SEARCH_TIMEOUT_MS, 1);
     const parsed = safeParseJSON(extractGeminiText(resData));
     if (!parsed.error) {
@@ -901,7 +902,7 @@ async function callAiJsonWithSearch(promptText) {
   }
   const fallback = await callAiJson({
     contents: [{ parts: [{ text: promptText }] }],
-    generationConfig: { responseMimeType: "application/json" }
+    generationConfig: { responseMimeType: "application/json", temperature: 0 }
   });
   fallback._sources = [];
   fallback._withSearch = false;
@@ -958,33 +959,35 @@ async function fetchKfzFromKba(hsn, tsn) {
 async function fetchSpecsForVehicle(vehCandidate, hsn, tsn) {
   showLoading(`Suche Wartungsdaten für ${vehCandidate.name} im Internet...`, "Stufe 2/2: KI-Wartungsplan");
 
-  const prompt = `Du bist ein Kfz-Meister. Erstelle die herstellerspezifischen Wartungsdaten und Füllmengen für dieses exakt ausgewählte Fahrzeug:
+  const prompt = `Du bist ein Kfz-Meister. Ermittle die Herstellerangaben für GENAU dieses Fahrzeug:
 Fahrzeugmodell: ${vehCandidate.name}
 Motorisierung: ${vehCandidate.sub}
 Kraftstoff: ${vehCandidate.fuelType}
-KBA-Code: ${hsn} / ${tsn}
+KBA-Code (HSN/TSN): ${hsn || "-"} / ${tsn || "-"}
 
-WICHTIG:
-Übertrage exakt diesen Modellnamen und diese Motorisierung! Generiere die genauen Spezifikationen und herstellerspezifischen Wartungsintervalle:
+REGELN – sehr wichtig:
+1. Übernimm Modellname und Motorisierung unverändert.
+2. Gib nur Werte an, die du für GENAU diesen Motor sicher kennst. Rate NICHT.
+3. Bist du bei einem Wert nicht sicher, schreibe stattdessen exakt "bitte prüfen".
+4. Reifengröße und Reifendruck hängen von der Ausstattung ab: Nenne die häufigste Serienbereifung. Beim Reifendruck den Wert für normale Beladung (vorne und hinten getrennt).
+5. Ein Motorkennbuchstabe darf nur genannt werden, wenn er sicher zu genau dieser Leistung (kW/PS) gehört.
+6. Wartungsintervalle: nur Positionen, die für dieses Fahrzeug gelten (z. B. Zahnriemen nur bei Zahnriemen-Motoren, Dieselfilter nur bei Diesel). Bei Steuerkette keinen Zahnriemen eintragen.
+   maxKm = Kilometer-Intervall (0 wenn nur zeitabhängig), maxM = Monats-Intervall (0 wenn nur km-abhängig).
+   Kennst du ein Intervall nicht sicher, setze in "desc" den Text "Intervall bitte prüfen".
 
-Antworte AUSSCHLIESSLICH im validen JSON-Format:
+Antworte AUSSCHLIESSLICH mit validem JSON in genau dieser Struktur (die Platzhalter in <> durch echte Werte ersetzen):
 {
   "name": "${vehCandidate.name}",
   "sub": "${vehCandidate.sub}",
   "fuelType": "${vehCandidate.fuelType}",
-  "oilSpec": "Ölnorm (z.B. Ford WSS-M2C913-D oder BMW Longlife-04)",
-  "oilCapacity": "Füllmenge mit Filter (z.B. 5.8 L)",
-  "tirePressure": "Empfohlener Druck (z.B. V: 2.4 bar | H: 2.4 bar)",
-  "battery": "Batterie (z.B. 12V 80Ah AGM)",
-  "tireSizeSummer": "Reifengröße Sommer (z.B. 225/50 R17 98W)",
-  "tireSizeWinter": "Reifengröße Winter (z.B. 215/60 R16 99H)",
+  "oilSpec": "<Ölnorm des Herstellers und Viskosität>",
+  "oilCapacity": "<Füllmenge beim Ölwechsel mit Filter, in L>",
+  "tirePressure": "<V: x.x bar | H: x.x bar>",
+  "battery": "<Spannung, Kapazität in Ah, Typ>",
+  "tireSizeSummer": "<Serien-Reifengröße mit Last- und Geschwindigkeitsindex>",
+  "tireSizeWinter": "<zulässige Winter-Reifengröße>",
   "intervals": [
-    { "title": "Motoröl & Ölfilter", "cat": "Öl", "partsQuery": "Motoröl Ölfilter ${vehCandidate.name}", "maxKm": 20000, "maxM": 12, "desc": "Herstellervorgabe: Jährlich oder 20.000 km" },
-    { "title": "Zahnriemen & Wasserpumpe", "cat": "Motor", "partsQuery": "Zahnriemensatz Wasserpumpe ${vehCandidate.name}", "maxKm": 200000, "maxM": 120, "desc": "Alle 200.000 km / 10 Jahre" },
-    { "title": "Bremsflüssigkeit", "cat": "Bremsen", "partsQuery": "Bremsflüssigkeit DOT 4", "maxKm": 0, "maxM": 24, "desc": "Alle 24 Monate erneuern" },
-    { "title": "Dieselfilter / Kraftstofffilter", "cat": "Filter", "partsQuery": "Kraftstofffilter ${vehCandidate.name}", "maxKm": 40000, "maxM": 24, "desc": "Alle 2 Jahre / 40.000 km" },
-    { "title": "Luftfiltereinsatz", "cat": "Filter", "partsQuery": "Luftfilter ${vehCandidate.name}", "maxKm": 40000, "maxM": 24, "desc": "Alle 2 Jahre / 40.000 km" },
-    { "title": "Innenraum- / Aktivkohlefilter", "cat": "Filter", "partsQuery": "Innenraumfilter ${vehCandidate.name}", "maxKm": 20000, "maxM": 12, "desc": "Jährlich erneuern" }
+    { "title": "<Wartungsposition>", "cat": "<Öl|Motor|Bremsen|Filter|Sonstiges>", "partsQuery": "<Suchbegriff für Ersatzteile inkl. Modell>", "maxKm": <Zahl>, "maxM": <Zahl>, "desc": "<kurze Beschreibung des Intervalls>" }
   ]
 }`;
 
@@ -1030,14 +1033,9 @@ Antworte AUSSCHLIESSLICH im validen JSON-Format:
 {
   "candidates": [
     {
-      "name": "Exakter Modellname (z. B. Ford S-Max 2.2 TDCi)",
-      "sub": "2.2L Duratorq Diesel • 147 kW / 200 PS",
-      "fuelType": "Diesel"
-    },
-    {
-      "name": "Alternative Ausführung (z. B. Ford Galaxy 2.2 TDCi)",
-      "sub": "2.2L Duratorq Diesel • 147 kW / 200 PS",
-      "fuelType": "Diesel"
+      "name": "<Marke Modell Motor (Baureihe)>",
+      "sub": "<Baujahre • Hubraum & Motorbezeichnung • kW / PS>",
+      "fuelType": "<Diesel|Benzin|Hybrid|Elektro>"
     }
   ]
 }`;
@@ -1181,7 +1179,22 @@ function applyVehicleCandidate(p) {
 
 function showAiPreview(p) {
   const box = document.getElementById("nv-ai-preview");
-  const ints = (Array.isArray(p.intervals) ? p.intervals : []).map(i => `• ${esc(i.title)}`).join("<br>");
+  // Unsichere Werte orange markieren
+  const v = (x) => {
+    const t = str(x).trim();
+    if (!t || /prüfen|unbekannt|^<.*>$/i.test(t)) return `<span style="color:var(--orange); font-weight:600;">bitte prüfen</span>`;
+    return esc(t);
+  };
+  const fmtInt = (i) => {
+    const km = Number(i.maxKm) || 0, m = Number(i.maxM) || 0;
+    const parts = [];
+    if (km) parts.push(km.toLocaleString("de-DE") + " km");
+    if (m) parts.push(m % 12 === 0 ? (m / 12) + (m === 12 ? " Jahr" : " Jahre") : m + " Monate");
+    const unsure = /prüfen/i.test(str(i.desc));
+    const when = parts.length ? parts.join(" / ") : "";
+    return `• ${esc(i.title)}${when ? " – " + esc(when) : ""}${unsure || !when ? ` <span style="color:var(--orange);">(bitte prüfen)</span>` : ""}`;
+  };
+  const ints = (Array.isArray(p.intervals) ? p.intervals : []).map(fmtInt).join("<br>");
   const changeBtn = (pendingAiCandidates && pendingAiCandidates.length > 1)
     ? `<div style="margin-top:10px;"><button type="button" class="btn-action" style="padding:6px 12px; font-size:11px;" onclick="document.getElementById('modal-nv-candidates').classList.add('open')"><i class="ph-bold ph-arrows-clockwise"></i> Andere Ausführung wählen</button></div>`
     : '';
@@ -1197,10 +1210,11 @@ function showAiPreview(p) {
     <strong>Modell:</strong> ${esc(p.name || "-")}<br>
     <strong>Motorisierung:</strong> ${esc(p.sub || "-")} (${esc(p.fuelType || "-")})<br><br>
     <strong>Spezifikationen:</strong><br>
-    Öl: ${esc(p.oilSpec || "-")} (${esc(p.oilCapacity || "-")})<br>
-    Reifendruck: ${esc(p.tirePressure || "-")}<br>
-    Batterie: ${esc(p.battery || "-")}<br>
-    Reifen: ${esc(p.tireSizeSummer || "-")}<br><br>
+    Öl: ${v(p.oilSpec)} – Menge: ${v(p.oilCapacity)}<br>
+    Reifendruck: ${v(p.tirePressure)}<br>
+    Batterie: ${v(p.battery)}<br>
+    Reifen: ${v(p.tireSizeSummer)}<br>
+    <span style="font-size:11px; color:var(--text-muted);">Reifendruck und -größe immer mit dem Aufkleber in der Fahrertür abgleichen.</span><br><br>
     <strong>Wartungsintervalle:</strong><br>${ints || "Standard-Intervalle"}
     ${srcHtml}
     ${changeBtn}`;
