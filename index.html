@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.4</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.5</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -913,7 +913,7 @@ async function searchUrlsFor(queries, perQuery) {
   const lists = await Promise.all((queries || []).map(q => freeWebSearch(q, perQuery || 2)));
   const all = [], seen = {};
   lists.forEach(l => l.forEach(u => { if (!seen[u]) { seen[u] = true; all.push(u); } }));
-  return all.slice(0, 8);
+  return all.slice(0, 10);
 }
 
 function extractUrlContextSources(resData, fallbackUrls) {
@@ -939,7 +939,7 @@ async function callAiJsonWithSearch(promptText, searchQueries) {
         if (lt) lt.textContent = "Lese " + urls.length + " Webseiten...";
         const resData = await executeGeminiRequest({
           contents: [{ parts: [{ text: promptText + "\n\nQUELLEN – lies diese Webseiten und nutze sie als Grundlage:\n" + urls.map(u => "- " + u).join("\n") +
-            "\n\nWICHTIG: Übernimm Zahlen (Füllmengen, Drücke, Intervalle, Normen) nur, wenn sie in diesen Seiten für GENAU dieses Fahrzeug/diesen Motor stehen. Steht ein Wert dort nicht eindeutig, schreibe \"bitte prüfen\". AUSNAHME Wartungsintervalle: Liste IMMER alle üblichen Positionen für dieses Fahrzeug auf (Motoröl & Filter, Luftfilter, Innenraumfilter, Bremsflüssigkeit, bei Diesel Kraftstofffilter, Zahnriemen falls vorhanden, ggf. Zündkerzen bei Benzinern). Stammt ein Intervall nicht aus den Seiten, nimm die übliche Herstellerangabe und schreibe in \"desc\" den Zusatz \"(Intervall bitte prüfen)\". Antworte am Ende NUR mit dem JSON-Objekt, ohne weiteren Text." }] }],
+            "\n\nWICHTIG: Übernimm Zahlen (Füllmengen, Drücke, Intervalle, Normen) nur, wenn sie in diesen Seiten für GENAU dieses Fahrzeug/diesen Motor stehen. Steht ein Wert dort nicht eindeutig, schreibe \"bitte prüfen\". Bei Wartungsintervallen: Liste trotzdem ALLE geforderten Positionen auf; setze \"fromSource\": true nur, wenn das Intervall in diesen Seiten steht, sonst false. Antworte am Ende NUR mit dem JSON-Objekt, ohne weiteren Text." }] }],
           tools: [{ url_context: {} }],
           generationConfig: { temperature: 0 }
         }, 45000, 2);
@@ -1033,6 +1033,8 @@ async function fetchKfzFromKba(hsn, tsn) {
 async function fetchSpecsForVehicle(vehCandidate, hsn, tsn) {
   showLoading(`Suche Wartungsdaten für ${vehCandidate.name} im Internet...`, "Stufe 2/2: KI-Wartungsplan");
 
+  const isDiesel = /diesel/i.test(vehCandidate.fuelType);
+  const isPetrol = /benzin|petrol|hybrid/i.test(vehCandidate.fuelType);
   const prompt = `Du bist ein Kfz-Meister. Ermittle die Herstellerangaben für GENAU dieses Fahrzeug:
 Fahrzeugmodell: ${vehCandidate.name}
 Motorisierung: ${vehCandidate.sub}
@@ -1040,36 +1042,72 @@ Kraftstoff: ${vehCandidate.fuelType}
 KBA-Code (HSN/TSN): ${hsn || "-"} / ${tsn || "-"}
 
 REGELN – sehr wichtig:
-1. Übernimm Modellname und Motorisierung unverändert.
-2. Gib nur Werte an, die du für GENAU diesen Motor sicher kennst. Rate NICHT.
-3. Bist du bei einem Wert nicht sicher, schreibe stattdessen exakt "bitte prüfen".
-4. Reifendruck: Wert für normale Beladung und Serienbereifung, vorne und hinten getrennt. Drehmoment der Radmuttern/Radschrauben in Nm.
-5. Ein Motorkennbuchstabe darf nur genannt werden, wenn er sicher zu genau dieser Leistung (kW/PS) gehört.
-6. Wartungsintervalle: nur Positionen, die für dieses Fahrzeug gelten (z. B. Zahnriemen nur bei Zahnriemen-Motoren, Dieselfilter nur bei Diesel). Bei Steuerkette keinen Zahnriemen eintragen.
-   maxKm = Kilometer-Intervall (0 wenn nur zeitabhängig), maxM = Monats-Intervall (0 wenn nur km-abhängig).
-   Kennst du ein Intervall nicht sicher, setze in "desc" den Text "Intervall bitte prüfen".
+1. Übernimm den Modellnamen unverändert. Im Feld "sub" übernimm die Motorisierung; NUR wenn die Quellen für genau diesen Motor eine andere Bauzeit nennen, korrigiere die Jahreszahlen.
+2. Rate NICHT. Ist ein technischer Wert (Öl, Füllmenge, Reifendruck, Drehmoment) nicht eindeutig belegt, schreibe exakt "bitte prüfen".
+3. Reifendruck: Wert für normale Beladung und Serienbereifung, vorne und hinten getrennt. Drehmoment der Radmuttern/Radschrauben in Nm.
+4. Füllmengen in Liter mit Komma, z. B. "5,9 L". Drücke mit Komma, z. B. "V: 2,4 bar | H: 2,2 bar".
+5. WARTUNGSPLAN – gehe GENAU diese Liste durch und gib JEDEN zutreffenden Punkt zurück (in dieser Reihenfolge, mit genau diesem "key"):
+   - key "oil":     Motoröl & Ölfilter
+   - key "air":     Luftfilter
+   - key "cabin":   Innenraumfilter / Pollenfilter
+   - key "fuel":    Kraftstofffilter ${isDiesel ? "(Diesel: immer angeben)" : "(nur wenn bei diesem Motor ein Wechselintervall existiert)"}
+   ${isPetrol ? '- key "spark":   Zündkerzen' : '- (Zündkerzen entfallen bei Diesel)'}
+   - key "brake":   Bremsflüssigkeit
+   - key "belt":    Zahnriemen & Wasserpumpe (NUR bei Zahnriemen-Motor; bei Steuerkette weglassen)
+   - key "aux":     Keilrippenriemen / Nebenaggregatriemen
+   - key "coolant": Kühlmittel (weglassen, wenn der Hersteller "Lebensdauerfüllung" vorgibt)
+   - key "gear":    Getriebeöl (NUR wenn der Hersteller ein Wechselintervall vorgibt)
+   maxKm = Kilometer-Intervall (0 wenn nur zeitabhängig), maxM = Intervall in Monaten (0 wenn nur km-abhängig).
+   "fromSource": true NUR wenn genau dieses Intervall in den gelesenen Quellen steht, sonst false (dann übliche Herstellerangabe verwenden).
 
 Antworte AUSSCHLIESSLICH mit validem JSON in genau dieser Struktur (die Platzhalter in <> durch echte Werte ersetzen):
 {
   "name": "${vehCandidate.name}",
-  "sub": "${vehCandidate.sub}",
+  "sub": "<Bauzeit • Hubraum & Motorcode • kW / PS>",
   "fuelType": "${vehCandidate.fuelType}",
   "oilSpec": "<Ölnorm des Herstellers und Viskosität>",
-  "oilCapacity": "<Füllmenge beim Ölwechsel mit Filter, in L>",
-  "tirePressure": "<V: x.x bar | H: x.x bar>",
+  "oilCapacity": "<Füllmenge beim Ölwechsel mit Filter>",
+  "tirePressure": "<V: x,x bar | H: x,x bar>",
   "wheelTorque": "<Anzugsdrehmoment der Radmuttern in Nm>",
   "intervals": [
-    { "title": "<Wartungsposition>", "cat": "<Öl|Motor|Bremsen|Filter|Sonstiges>", "partsQuery": "<Suchbegriff für Ersatzteile inkl. Modell>", "maxKm": <Zahl>, "maxM": <Zahl>, "desc": "<kurze Beschreibung des Intervalls>" }
+    { "key": "<key aus der Liste>", "title": "<Wartungsposition>", "cat": "<Öl|Motor|Bremsen|Filter|Getriebe>", "partsQuery": "<Suchbegriff für Ersatzteile inkl. Modell>", "maxKm": <Zahl>, "maxM": <Zahl>, "desc": "<kurze Beschreibung des Intervalls>", "fromSource": <true|false> }
   ]
 }`;
 
   const short = shortVehicleQuery(vehCandidate);
-  return await callAiJsonWithSearch(prompt, [
+  const res = await callAiJsonWithSearch(prompt, [
     short + " Ölmenge Liter Ölnorm",
     short + " engine oil capacity litres",
     short + " Reifendruck Drehmoment Radmuttern Nm",
-    short + " Wartungsintervall Zahnriemen"
+    short + " Wartungsintervall Zahnriemen",
+    short + " Wartungsplan Inspektion Intervalle Luftfilter Kraftstofffilter"
   ]);
+  return cleanSpecsResult(res);
+}
+
+// Ergebnis aufräumen: Einheiten vereinheitlichen, Reihenfolge, Herkunft der Intervalle
+const INTERVAL_ORDER = ["oil", "air", "cabin", "fuel", "spark", "brake", "belt", "aux", "coolant", "gear"];
+function germanNum(t) { return str(t).replace(/(\d)\.(\d)/g, "$1,$2"); }
+function cleanLiters(t) {
+  const x = str(t).trim();
+  if (!x || /prüfen/i.test(x)) return x;
+  return germanNum(x).replace(/\s*(l|ltr\.?|liter|litre?s?)\b\.?/gi, " L").replace(/\s+L/g, " L").trim();
+}
+function cleanSpecsResult(r) {
+  if (!r || typeof r !== "object") return r;
+  r.oilCapacity = cleanLiters(r.oilCapacity);
+  r.tirePressure = germanNum(r.tirePressure);
+  r.wheelTorque = str(r.wheelTorque).replace(/\s*nm\b/i, " Nm").trim();
+  if (Array.isArray(r.intervals)) {
+    r.intervals = r.intervals
+      .filter(i => isPlainObject(i) && str(i.title).trim() && (num(i.maxKm) > 0 || num(i.maxM) > 0))
+      .map(i => Object.assign({}, i, { fromSource: r._withSearch ? (i.fromSource === true || i.fromSource === "true") : false }));
+    r.intervals.sort((x, y) => {
+      const a = INTERVAL_ORDER.indexOf(str(x.key)), b = INTERVAL_ORDER.indexOf(str(y.key));
+      return (a < 0 ? 99 : a) - (b < 0 ? 99 : b);
+    });
+  }
+  return r;
 }
 
 // Kurzer, sauberer Suchbegriff: "Ford S-Max 2.2 TDCi 200 PS"
@@ -1279,9 +1317,11 @@ function showAiPreview(p) {
     const parts = [];
     if (km) parts.push(km.toLocaleString("de-DE") + " km");
     if (m) parts.push(m % 12 === 0 ? (m / 12) + (m === 12 ? " Jahr" : " Jahre") : m + " Monate");
-    const unsure = /prüfen/i.test(str(i.desc));
-    const when = parts.length ? parts.join(" / ") : "";
-    return `• ${esc(i.title)}${when ? " – " + esc(when) : ""}${unsure || !when ? ` <span style="color:var(--orange);">(bitte prüfen)</span>` : ""}`;
+    const when = parts.join(" / ");
+    const tag = i.fromSource
+      ? ` <span style="color:var(--green);">✓ Quelle</span>`
+      : ` <span style="color:var(--orange);">(geschätzt – bitte prüfen)</span>`;
+    return `• ${esc(i.title)}${when ? " – " + esc(when) : ""}${tag}`;
   };
   const ints = (Array.isArray(p.intervals) ? p.intervals : []).map(fmtInt).join("<br>");
   const changeBtn = (pendingAiCandidates && pendingAiCandidates.length > 1)
@@ -1289,8 +1329,11 @@ function showAiPreview(p) {
     : '';
 
   const srcList = Array.isArray(p._sources) ? p._sources : [];
+  const allInts = Array.isArray(p.intervals) ? p.intervals : [];
+  const guessed = allInts.filter(i => !i.fromSource).length;
   const header = p._withSearch
-    ? `<div style="color:var(--green); font-weight:700; margin-bottom:6px;">✅ Mit Internetsuche ermittelt – Werte aus den Quellen unten</div>`
+    ? `<div style="color:var(--green); font-weight:700; margin-bottom:2px;">✅ Mit Internetsuche ermittelt</div>` +
+      `<div style="font-size:11px; margin-bottom:6px; color:${guessed ? "var(--orange)" : "var(--text-muted)"};">${allInts.length - guessed} von ${allInts.length} Intervallen aus Quellen belegt${guessed ? ", " + guessed + " geschätzt" : ""}</div>`
     : `<div style="color:var(--orange); font-weight:700; margin-bottom:6px;">⚠️ Ohne Internetsuche ermittelt – bitte Angaben prüfen</div>`;
   const srcHtml = srcList.length
     ? `<br><br><strong>Quellen:</strong><br>` + srcList.map(s => `<a href="${esc(s.uri)}" target="_blank" rel="noopener" style="color:var(--primary);">${esc(s.title)}</a>`).join("<br>")
@@ -1373,7 +1416,7 @@ function saveNewVehicle() {
     lastKm: km,
     maxM: Math.max(0, Math.round(num(inv.maxM))),
     lastDate: todayISO(),
-    desc: inv.desc || (inv.maxKm ? `Alle ${fmtNum(inv.maxKm)} km` : `Alle ${inv.maxM} Monate`)
+    desc: (inv.desc || (inv.maxKm ? `Alle ${fmtNum(inv.maxKm)} km` : `Alle ${inv.maxM} Monate`)) + (inv.fromSource === false ? " (geschätzt – bitte prüfen)" : "")
   })) : [
     { id: "i1", title: "Motoröl & Filter", cat: "Öl", partsQuery: "Motoröl Ölfilter " + name, maxKm: 20000, lastKm: km, maxM: 12, lastDate: todayISO(), desc: "Jährlich oder alle 20.000 km" },
     { id: "i2", title: "Bremsflüssigkeit", cat: "Bremsen", partsQuery: "Bremsflüssigkeit DOT 4", maxKm: 0, lastKm: km, maxM: 24, lastDate: todayISO(), desc: "Alle 24 Monate wechseln" }
