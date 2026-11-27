@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.8</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.9</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -188,7 +188,7 @@
       <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Wird ausschließlich lokal in deinem Browser gespeichert.</p>
       <div class="form-group">
         <label class="form-label">Google Gemini Key</label>
-        <input type="password" id="input-api-key" class="form-input" placeholder="AQ.… oder AIza…" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <input type="text" id="input-api-key" class="form-input" style="-webkit-text-security:disc;" data-lpignore="true" data-1p-ignore="true" placeholder="AQ.… oder AIza…" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false">
       </div>
       <button type="button" class="btn-action" style="width:100%;" id="btn-test-ai" onclick="testAiConnection()"><i class="ph-bold ph-pulse"></i> Verbindung testen</button>
       <div id="key-test-result" style="display:none; margin-top:12px; font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-word; background:rgba(0,0,0,0.4); border:1px solid var(--glass-border); border-radius:12px; padding:12px;"></div>
