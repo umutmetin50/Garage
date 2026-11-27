@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.1</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.2</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -939,7 +939,7 @@ async function callAiJsonWithSearch(promptText, searchQueries) {
         if (lt) lt.textContent = "Lese " + urls.length + " Webseiten...";
         const resData = await executeGeminiRequest({
           contents: [{ parts: [{ text: promptText + "\n\nQUELLEN – lies diese Webseiten und nutze sie als Grundlage:\n" + urls.map(u => "- " + u).join("\n") +
-            "\n\nWICHTIG: Übernimm Zahlen (Füllmengen, Drücke, Intervalle, Normen) nur, wenn sie in diesen Seiten für GENAU dieses Fahrzeug/diesen Motor stehen. Steht ein Wert dort nicht eindeutig, schreibe \"bitte prüfen\". Antworte am Ende NUR mit dem JSON-Objekt, ohne weiteren Text." }] }],
+            "\n\nWICHTIG: Übernimm Zahlen (Füllmengen, Drücke, Intervalle, Normen) nur, wenn sie in diesen Seiten für GENAU dieses Fahrzeug/diesen Motor stehen. Steht ein Wert dort nicht eindeutig, schreibe \"bitte prüfen\". AUSNAHME Wartungsintervalle: Liste IMMER alle üblichen Positionen für dieses Fahrzeug auf (Motoröl & Filter, Luftfilter, Innenraumfilter, Bremsflüssigkeit, bei Diesel Kraftstofffilter, Zahnriemen falls vorhanden, ggf. Zündkerzen bei Benzinern). Stammt ein Intervall nicht aus den Seiten, nimm die übliche Herstellerangabe und schreibe in \"desc\" den Zusatz \"(Intervall bitte prüfen)\". Antworte am Ende NUR mit dem JSON-Objekt, ohne weiteren Text." }] }],
           tools: [{ url_context: {} }],
           generationConfig: { temperature: 0 }
         }, 45000, 2);
