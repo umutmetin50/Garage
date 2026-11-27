@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.2</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.3</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -913,7 +913,7 @@ async function searchUrlsFor(queries, perQuery) {
   const lists = await Promise.all((queries || []).map(q => freeWebSearch(q, perQuery || 2)));
   const all = [], seen = {};
   lists.forEach(l => l.forEach(u => { if (!seen[u]) { seen[u] = true; all.push(u); } }));
-  return all.slice(0, 6);
+  return all.slice(0, 8);
 }
 
 function extractUrlContextSources(resData, fallbackUrls) {
@@ -1065,12 +1065,24 @@ Antworte AUSSCHLIESSLICH mit validem JSON in genau dieser Struktur (die Platzhal
   ]
 }`;
 
-  const base = (vehCandidate.name + " " + str(vehCandidate.sub).replace(/\d{4}\s*[–-]\s*\d{4}/, "").replace(/[•|]/g, " ")).replace(/\s+/g, " ").trim();
+  const short = shortVehicleQuery(vehCandidate);
   return await callAiJsonWithSearch(prompt, [
-    base + " Ölmenge Liter Ölnorm",
-    vehCandidate.name + " Reifendruck Tabelle",
-    vehCandidate.name + " Wartungsintervall Zahnriemen"
+    short + " Ölmenge Liter Ölnorm",
+    short + " engine oil capacity litres",
+    short + " Reifendruck",
+    short + " Wartungsintervall Zahnriemen"
   ]);
+}
+
+// Kurzer, sauberer Suchbegriff: "Ford S-Max 2.2 TDCi 200 PS"
+function shortVehicleQuery(c) {
+  let name = str(c.name)
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\b(Automatik|Schaltgetriebe|Powershift|DSG|Facelift|Limousine|Kombi|Turnier|Van)\b/gi, " ")
+    .replace(/\s+/g, " ").trim();
+  const ps = (str(c.sub).match(/(\d{2,3})\s*PS/i) || [])[1];
+  if (ps && !new RegExp("\\b" + ps + "\\s*PS", "i").test(name)) name += " " + ps + " PS";
+  return name;
 }
 
 async function lookupVehicleOptionA() {
