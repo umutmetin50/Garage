@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.7</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.8</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -188,7 +188,7 @@
       <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Wird ausschließlich lokal in deinem Browser gespeichert.</p>
       <div class="form-group">
         <label class="form-label">Google Gemini Key</label>
-        <input type="password" id="input-api-key" class="form-input" placeholder="AIzaSy..." autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <input type="password" id="input-api-key" class="form-input" placeholder="AQ.… oder AIza…" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false">
       </div>
       <button type="button" class="btn-action" style="width:100%;" id="btn-test-ai" onclick="testAiConnection()"><i class="ph-bold ph-pulse"></i> Verbindung testen</button>
       <div id="key-test-result" style="display:none; margin-top:12px; font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-word; background:rgba(0,0,0,0.4); border:1px solid var(--glass-border); border-radius:12px; padding:12px;"></div>
@@ -685,7 +685,7 @@ async function testOneModel(model, withThinking, ms) {
   if (tc) payload.generationConfig = { thinkingConfig: tc };
   const t0 = Date.now();
   try {
-    const r = await fetchJsonWithTimeout(GEMINI_BASE + "/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey), {
+    const r = await fetchJsonWithTimeout(GEMINI_BASE + "/models/" + encodeURIComponent(model) + ":generateContent", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
     }, ms);
     const sec = (Date.now() - t0) / 1000;
@@ -711,7 +711,7 @@ async function testAiConnection() {
   const show = () => { box.textContent = lines.join("\n"); };
   try {
     lines.push("⏳ Prüfe den Schlüssel..."); show();
-    const chk = await fetchJsonWithTimeout(GEMINI_BASE + "/models?pageSize=1&key=" + encodeURIComponent(apiKey), {}, 10000);
+    const chk = await fetchJsonWithTimeout(GEMINI_BASE + "/models?pageSize=1", {}, 10000);
     if (!chk.ok) {
       const m = (chk.data && chk.data.error && chk.data.error.message) || ("HTTP " + chk.status);
       lines[0] = "❌ Google lehnt diesen Schlüssel ab (" + chk.status + "): " + m.slice(0, 100) + "\n\nBitte bei aistudio.google.com/apikey einen gültigen Schlüssel kopieren, das Feld oben komplett leeren und neu einfügen.";
@@ -777,7 +777,10 @@ async function fetchJsonWithTimeout(url, opts, ms) {
   let timedOut = false;
   const t = setTimeout(() => { timedOut = true; c.abort(); }, ms);
   try {
-    const resp = await fetch(url, Object.assign({}, opts, { signal: c.signal }));
+    // Schlüssel im Header senden (funktioniert mit alten "AIza…" und neuen "AQ.…"-Schlüsseln)
+    const headers = Object.assign({}, opts.headers || {});
+    if (url.indexOf(GEMINI_BASE) === 0) headers["x-goog-api-key"] = apiKey;
+    const resp = await fetch(url, Object.assign({}, opts, { headers: headers, signal: c.signal }));
     let data = null;
     try { data = await resp.json(); } catch (e) { if (e && e.name === "AbortError") throw e; }
     return { ok: resp.ok, status: resp.status, data: data };
@@ -797,7 +800,7 @@ async function getModelCandidates() {
   if (cachedModels && cachedModels.length) return cachedModels;
   let list = [];
   try {
-    const r = await fetchJsonWithTimeout(GEMINI_BASE + "/models?pageSize=1000&key=" + encodeURIComponent(apiKey), {}, 10000);
+    const r = await fetchJsonWithTimeout(GEMINI_BASE + "/models?pageSize=1000", {}, 10000);
     if (r.ok && r.data) {
       const names = (r.data.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => str(m.name).replace(/^models\//, ""));
       list = rankGeminiModels(names);
@@ -833,7 +836,7 @@ async function executeGeminiRequest(bodyPayload, perTryMs, maxTries) {
       const t0 = Date.now();
       let r;
       try {
-        r = await fetchJsonWithTimeout(GEMINI_BASE + "/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey), {
+        r = await fetchJsonWithTimeout(GEMINI_BASE + "/models/" + encodeURIComponent(model) + ":generateContent", {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
         }, timeout);
       } catch (e) {
