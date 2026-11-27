@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.3</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.4</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -243,7 +243,7 @@
       </div>
       <div class="form-group"><label class="form-label">Öl & Füllmenge</label><input type="text" id="edit-spec-oil" class="form-input"></div>
       <div class="form-group"><label class="form-label">Reifendruck</label><input type="text" id="edit-spec-pressure" class="form-input"></div>
-      <div class="form-group"><label class="form-label">Batterie</label><input type="text" id="edit-spec-battery" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Drehmoment Radmuttern</label><input type="text" id="edit-spec-torque" class="form-input" placeholder="z. B. 140 Nm"></div>
       <div class="form-group"><label class="form-label">Versicherung</label><input type="text" id="edit-spec-insurance" class="form-input"></div>
       <div style="display:flex; gap:12px;">
         <div class="form-group" style="flex:1;"><label class="form-label">Tel. Versich.</label><input type="tel" id="edit-spec-ins-phone" class="form-input"></div>
@@ -507,7 +507,7 @@ function normalizeVehicle(raw, id) {
   v.fuelType = str(raw.fuelType) || "Diesel";
   v.searchPrefix = str(raw.searchPrefix) || v.name;
   const s = isPlainObject(raw.specs) ? Object.assign({}, raw.specs) : {};
-  ["oil", "tirePressure", "hsn_tsn", "battery", "insurance", "insurancePhone", "assistPhone"].forEach(k => { s[k] = str(s[k]); });
+  ["oil", "tirePressure", "hsn_tsn", "wheelTorque", "insurance", "insurancePhone", "assistPhone"].forEach(k => { s[k] = str(s[k]); });
   v.specs = s;
   const t = isPlainObject(raw.tires) ? raw.tires : {};
   v.tires = { currentSeason: t.currentSeason === "Winter" ? "Winter" : "Sommer", summer: normTire(t.summer), winter: normTire(t.winter) };
@@ -1043,7 +1043,7 @@ REGELN – sehr wichtig:
 1. Übernimm Modellname und Motorisierung unverändert.
 2. Gib nur Werte an, die du für GENAU diesen Motor sicher kennst. Rate NICHT.
 3. Bist du bei einem Wert nicht sicher, schreibe stattdessen exakt "bitte prüfen".
-4. Reifengröße und Reifendruck hängen von der Ausstattung ab: Nenne die häufigste Serienbereifung. Beim Reifendruck den Wert für normale Beladung (vorne und hinten getrennt).
+4. Reifendruck: Wert für normale Beladung und Serienbereifung, vorne und hinten getrennt. Drehmoment der Radmuttern/Radschrauben in Nm.
 5. Ein Motorkennbuchstabe darf nur genannt werden, wenn er sicher zu genau dieser Leistung (kW/PS) gehört.
 6. Wartungsintervalle: nur Positionen, die für dieses Fahrzeug gelten (z. B. Zahnriemen nur bei Zahnriemen-Motoren, Dieselfilter nur bei Diesel). Bei Steuerkette keinen Zahnriemen eintragen.
    maxKm = Kilometer-Intervall (0 wenn nur zeitabhängig), maxM = Monats-Intervall (0 wenn nur km-abhängig).
@@ -1057,9 +1057,7 @@ Antworte AUSSCHLIESSLICH mit validem JSON in genau dieser Struktur (die Platzhal
   "oilSpec": "<Ölnorm des Herstellers und Viskosität>",
   "oilCapacity": "<Füllmenge beim Ölwechsel mit Filter, in L>",
   "tirePressure": "<V: x.x bar | H: x.x bar>",
-  "battery": "<Spannung, Kapazität in Ah, Typ>",
-  "tireSizeSummer": "<Serien-Reifengröße mit Last- und Geschwindigkeitsindex>",
-  "tireSizeWinter": "<zulässige Winter-Reifengröße>",
+  "wheelTorque": "<Anzugsdrehmoment der Radmuttern in Nm>",
   "intervals": [
     { "title": "<Wartungsposition>", "cat": "<Öl|Motor|Bremsen|Filter|Sonstiges>", "partsQuery": "<Suchbegriff für Ersatzteile inkl. Modell>", "maxKm": <Zahl>, "maxM": <Zahl>, "desc": "<kurze Beschreibung des Intervalls>" }
   ]
@@ -1069,7 +1067,7 @@ Antworte AUSSCHLIESSLICH mit validem JSON in genau dieser Struktur (die Platzhal
   return await callAiJsonWithSearch(prompt, [
     short + " Ölmenge Liter Ölnorm",
     short + " engine oil capacity litres",
-    short + " Reifendruck",
+    short + " Reifendruck Drehmoment Radmuttern Nm",
     short + " Wartungsintervall Zahnriemen"
   ]);
 }
@@ -1303,9 +1301,8 @@ function showAiPreview(p) {
     <strong>Spezifikationen:</strong><br>
     Öl: ${v(p.oilSpec)} – Menge: ${v(p.oilCapacity)}<br>
     Reifendruck: ${v(p.tirePressure)}<br>
-    Batterie: ${v(p.battery)}<br>
-    Reifen: ${v(p.tireSizeSummer)}<br>
-    <span style="font-size:11px; color:var(--text-muted);">Reifendruck und -größe immer mit dem Aufkleber in der Fahrertür abgleichen.</span><br><br>
+    Drehmoment Radmuttern: ${v(p.wheelTorque)}<br>
+    <span style="font-size:11px; color:var(--text-muted);">Reifendruck immer mit dem Aufkleber in der Fahrertür abgleichen.</span><br><br>
     <strong>Wartungsintervalle:</strong><br>${ints || "Standard-Intervalle"}
     ${srcHtml}
     ${changeBtn}`;
@@ -1395,12 +1392,12 @@ function saveNewVehicle() {
       oil: p.oilSpec ? `${p.oilSpec} [${p.oilCapacity || '-'}]` : "-", 
       tirePressure: p.tirePressure || "-", 
       hsn_tsn: (hsnVal && tsnVal) ? `${hsnVal} / ${tsnVal}` : "-", 
-      battery: p.battery || "-" 
+      wheelTorque: (p.wheelTorque && !/prüfen|^<.*>$/i.test(p.wheelTorque)) ? p.wheelTorque : "-" 
     },
     tires: {
       currentSeason: "Sommer",
-      summer: { size: p.tireSizeSummer || "-", brand: "", depthVA: 6, depthHA: 6 },
-      winter: { size: p.tireSizeWinter || "-", brand: "", depthVA: 6, depthHA: 6 }
+      summer: { size: "-", brand: "", depthVA: 6, depthHA: 6 },
+      winter: { size: "-", brand: "", depthVA: 6, depthHA: 6 }
     },
     intervals: intervals,
     logs: [],
@@ -1433,7 +1430,7 @@ function openEditSpecsModal() {
   document.getElementById("edit-tire-brand").value = ssn.brand;
   document.getElementById("edit-spec-oil").value = v.specs.oil === "-" ? "" : v.specs.oil;
   document.getElementById("edit-spec-pressure").value = v.specs.tirePressure === "-" ? "" : v.specs.tirePressure;
-  document.getElementById("edit-spec-battery").value = v.specs.battery === "-" ? "" : v.specs.battery;
+  document.getElementById("edit-spec-torque").value = (!v.specs.wheelTorque || v.specs.wheelTorque === "-") ? "" : v.specs.wheelTorque;
   document.getElementById("edit-spec-insurance").value = v.specs.insurance;
   document.getElementById("edit-spec-ins-phone").value = v.specs.insurancePhone;
   document.getElementById("edit-spec-assist-phone").value = v.specs.assistPhone;
@@ -1447,7 +1444,7 @@ function saveSpecs() {
   ssn.brand = document.getElementById("edit-tire-brand").value.trim();
   v.specs.oil = document.getElementById("edit-spec-oil").value.trim() || "-";
   v.specs.tirePressure = document.getElementById("edit-spec-pressure").value.trim() || "-";
-  v.specs.battery = document.getElementById("edit-spec-battery").value.trim() || "-";
+  v.specs.wheelTorque = document.getElementById("edit-spec-torque").value.trim() || "-";
   v.specs.insurance = document.getElementById("edit-spec-insurance").value.trim();
   v.specs.insurancePhone = document.getElementById("edit-spec-ins-phone").value.trim();
   v.specs.assistPhone = document.getElementById("edit-spec-assist-phone").value.trim();
@@ -2017,7 +2014,7 @@ function renderVehicle(v) {
       <div class="info-row"><span class="info-label">HSN / TSN</span><span class="info-val">${esc(v.specs.hsn_tsn || '-')}</span></div>
       <div class="info-row"><span class="info-label">Motoröl & Menge</span><span class="info-val">${esc(v.specs.oil || '-')}</span></div>
       <div class="info-row"><span class="info-label">Reifendruck</span><span class="info-val">${esc(v.specs.tirePressure || '-')}</span></div>
-      <div class="info-row"><span class="info-label">Batterietyp</span><span class="info-val">${esc(v.specs.battery || '-')}</span></div>
+      <div class="info-row"><span class="info-label">Drehmoment Radmuttern</span><span class="info-val">${esc(v.specs.wheelTorque || '-')}</span></div>
       <div class="info-row"><span class="info-label">Versicherung</span><span class="info-val">${esc(v.specs.insurance || '-')}</span></div>
       ${v.specs.insurancePhone ? `<div class="info-row"><span class="info-label">Notfall-Hotline</span><a href="tel:${esc(v.specs.insurancePhone)}" class="info-val" style="color:var(--primary); text-decoration:none;">${esc(v.specs.insurancePhone)}</a></div>` : ''}
     </div>
