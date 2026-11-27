@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.5</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v1.6</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -450,6 +450,7 @@
 
 const STORAGE_KEY = "garage_ai_pro_glass_v9";
 const API_KEY_STORAGE = "gemini_api_key_v1";
+const PREFERRED_MODEL_STORAGE = "gemini_preferred_model_v1";
 const THEME_STORAGE = "app_theme";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const AI_TIMEOUT_MS = 25000;          // max. Wartezeit pro Modell-Versuch
@@ -678,6 +679,25 @@ function showLoading(text, title) {
 function hideLoading() { document.getElementById("ai-loading").classList.remove("open"); }
 
 function openKeyModal() { document.getElementById("input-api-key").value = apiKey; document.getElementById("modal-key").classList.add("open"); }
+async function testOneModel(model, withThinking, ms) {
+  const payload = { contents: [{ parts: [{ text: "Antworte nur mit dem Wort OK." }] }] };
+  const tc = withThinking ? thinkingConfigFor(model) : null;
+  if (tc) payload.generationConfig = { thinkingConfig: tc };
+  const t0 = Date.now();
+  try {
+    const r = await fetchJsonWithTimeout(GEMINI_BASE + "/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(apiKey), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+    }, ms);
+    const sec = (Date.now() - t0) / 1000;
+    if (r.ok && r.data && extractGeminiText(r.data)) return { model, withThinking, ok: true, sec, info: "OK" };
+    const msg = (r.data && r.data.error && r.data.error.message) || ("HTTP " + r.status);
+    return { model, withThinking, ok: false, sec, info: (r.status === 429 ? "Limit erreicht" : (r.status === 503 ? "überlastet" : "HTTP " + r.status + ": " + msg.slice(0, 80))) };
+  } catch (e) {
+    if (e.isTimeout) return { model, withThinking, ok: false, sec: ms / 1000, info: "keine Antwort nach " + Math.round(ms / 1000) + " s" };
+    throw e;
+  }
+}
+
 async function testAiConnection() {
   const input = document.getElementById("input-api-key").value.trim();
   const box = document.getElementById("key-test-result");
@@ -685,29 +705,43 @@ async function testAiConnection() {
   box.style.display = "block";
   if (!input) { box.textContent = "❌ Bitte zuerst einen API-Key eingeben."; return; }
   apiKey = input; lsSet(API_KEY_STORAGE, apiKey); updateKeyIndicator();
-  cachedModels = null;
+  cachedModels = null; aiUserCancelled = false;
   btn.disabled = true;
   const lines = [];
   const show = () => { box.textContent = lines.join("\n"); };
   try {
     lines.push("⏳ Lade Modellliste..."); show();
-    const t0 = Date.now();
-    const models = await getModelCandidates();
-    lines[lines.length - 1] = "✅ Modelle (" + ((Date.now() - t0) / 1000).toFixed(1) + " s): " + models.slice(0, AI_MAX_MODEL_TRIES).join(", ");
-    lines.push("⏳ Test 1: KI-Antwort ohne Internet..."); show();
-    try {
-      await executeGeminiRequest({ contents: [{ parts: [{ text: "Antworte nur mit dem Wort OK." }] }] }, 30000, AI_MAX_MODEL_TRIES);
-      lines[lines.length - 1] = "✅ Test 1 OK: " + lastAiInfo.model + " in " + lastAiInfo.sec + " s";
-    } catch (e) { lines[lines.length - 1] = "❌ Test 1 fehlgeschlagen: " + e.message; }
-    lines.push("⏳ Test 2: KI mit Google-Internetsuche..."); show();
+    const all = await getModelCandidates();
+    const flashModels = all.filter(m => /flash/.test(m));
+    const pool = (flashModels.length ? flashModels : all).slice(0, 6);
+    lines[0] = "✅ " + all.length + " Modelle gefunden. Teste " + pool.length + " gleichzeitig (max. 20 s)...";
+    show();
+
+    const jobs = pool.map(m => testOneModel(m, false, 20000));
+    if (thinkingConfigFor(pool[0])) jobs.push(testOneModel(pool[0], true, 20000));
+    const results = await Promise.all(jobs);
+
+    results.forEach(r => lines.push((r.ok ? "✅ " : "❌ ") + r.model + (r.withThinking ? " (mit Denkmodus)" : "") + ": " + r.info + (r.ok ? " in " + r.sec.toFixed(1) + " s" : "")));
+
+    const good = results.filter(r => r.ok && !r.withThinking).sort((x, y) => x.sec - y.sec);
+    if (!good.length) {
+      lines.push("", "❌ Kein Modell hat geantwortet. Das liegt an Google bzw. am Konto, nicht an der App.");
+      show();
+      return;
+    }
+    const best = good[0].model;
+    lsSet(PREFERRED_MODEL_STORAGE, best);
+    cachedModels = null;
+    lines.push("", "⭐ Die App nutzt ab jetzt zuerst: " + best);
+
+    lines.push("⏳ Teste Internetsuche mit " + best + "..."); show();
     try {
       const res = await executeGeminiRequest({
         contents: [{ parts: [{ text: "Wie viel PS hat ein Ford S-Max 2.2 TDCi? Antworte in einem kurzen Satz." }] }],
         tools: [{ google_search: {} }]
       }, AI_SEARCH_TIMEOUT_MS, 1);
-      const n = extractSearchSources(res).length;
-      lines[lines.length - 1] = "✅ Test 2 OK: " + lastAiInfo.model + " in " + lastAiInfo.sec + " s, " + n + " Quelle(n)";
-    } catch (e) { lines[lines.length - 1] = "❌ Test 2 fehlgeschlagen: " + e.message; }
+      lines[lines.length - 1] = "✅ Internetsuche OK in " + lastAiInfo.sec + " s, " + extractSearchSources(res).length + " Quelle(n)";
+    } catch (e) { lines[lines.length - 1] = "❌ Internetsuche: " + e.message.replace(/^\s*•\s*/, ""); }
   } catch (e) {
     lines.push("❌ Fehler: " + e.message);
   } finally {
@@ -763,6 +797,8 @@ async function getModelCandidates() {
     }
   } catch (e) { if (aiUserCancelled) throw e; }
   if (!list.length) list = FALLBACK_MODELS.slice();
+  const pref = lsGet(PREFERRED_MODEL_STORAGE);
+  if (pref && list.includes(pref)) list = [pref].concat(list.filter(m => m !== pref));
   cachedModels = list;
   return list;
 }
