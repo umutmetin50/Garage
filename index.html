@@ -147,7 +147,7 @@
   <div class="bg-glow glow-3"></div>
 
   <div class="top-bar">
-    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.0</span></div>
+    <div class="app-title">Garage <span style="font-size:11px; font-weight:600; color:var(--text-muted); letter-spacing:0;">v2.1</span></div>
     <div class="top-bar-btns">
       <div class="theme-picker">
         <div class="theme-dot" data-theme="blue" style="background:#0a84ff;" onclick="setTheme('blue', '#0a84ff', 'rgba(10, 132, 255, 0.22)', this)"></div>
@@ -879,12 +879,87 @@ function extractSearchSources(resData) {
   return out.slice(0, 5);
 }
 
-// KI-Anfrage MIT Google-Internetsuche. Fällt automatisch auf die normale Anfrage zurück,
-// falls die Suche nicht verfügbar ist (z. B. Tageslimit erreicht).
-async function callAiJsonWithSearch(promptText) {
+// ===== Kostenlose Internetsuche: DuckDuckGo (über den Lesedienst r.jina.ai) =====
+const WEB_SEARCH_TIMEOUT_MS = 15000;
+const SKIP_DOMAINS_RE = /(youtube\.com|facebook\.com|instagram\.com|tiktok\.com|pinterest\.|amazon\.|ebay\.|duckduckgo\.com)/i;
+
+async function freeWebSearch(query, maxResults) {
+  const url = "https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query);
+  let txt = "";
+  {
+    try {
+      const c = new AbortController(); aiActiveControllers.add(c);
+      const t = setTimeout(() => c.abort(), WEB_SEARCH_TIMEOUT_MS);
+      try { const resp = await fetch(url, { signal: c.signal }); txt = resp.ok ? await resp.text() : ""; }
+      finally { clearTimeout(t); aiActiveControllers.delete(c); }
+    } catch (e) { if (aiUserCancelled) throw new Error("Abgebrochen."); return []; }
+  }
+  const out = [];
+  const seen = {};
+  for (const m of txt.matchAll(/uddg=([^&)\s]+)/g)) {
+    let u = "";
+    try { u = decodeURIComponent(m[1]); } catch (e) { continue; }
+    if (!/^https?:\/\//.test(u) || SKIP_DOMAINS_RE.test(u)) continue;
+    const key = u.replace(/[#?].*$/, "");
+    if (seen[key]) continue;
+    seen[key] = true;
+    out.push(u);
+    if (out.length >= (maxResults || 3)) break;
+  }
+  return out;
+}
+
+async function searchUrlsFor(queries, perQuery) {
+  const lists = await Promise.all((queries || []).map(q => freeWebSearch(q, perQuery || 2)));
+  const all = [], seen = {};
+  lists.forEach(l => l.forEach(u => { if (!seen[u]) { seen[u] = true; all.push(u); } }));
+  return all.slice(0, 6);
+}
+
+function extractUrlContextSources(resData, fallbackUrls) {
+  const cand = resData && resData.candidates && resData.candidates[0];
+  const meta = (cand && cand.urlContextMetadata && cand.urlContextMetadata.urlMetadata) || [];
+  const ok = meta.filter(m => m && m.retrievedUrl && /SUCCESS/i.test(str(m.urlRetrievalStatus))).map(m => m.retrievedUrl);
+  const list = ok.length ? ok : (fallbackUrls || []);
+  return list.slice(0, 6).map(u => ({ uri: u, title: u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "") }));
+}
+
+// KI-Anfrage MIT Internetsuche:
+// 1. kostenlos: DuckDuckGo-Suche + Gemini liest die gefundenen Seiten (url_context)
+// 2. falls verfügbar: Google-Suche von Gemini
+// 3. sonst: KI-Wissen ohne Internet
+async function callAiJsonWithSearch(promptText, searchQueries) {
+  const lt = document.getElementById("ai-loading-text");
+  // --- 1. Kostenlose Suche ---
+  if (searchQueries && searchQueries.length) {
+    try {
+      if (lt) lt.textContent = "Suche im Internet...";
+      const urls = await searchUrlsFor(searchQueries, 2);
+      if (urls.length) {
+        if (lt) lt.textContent = "Lese " + urls.length + " Webseiten...";
+        const resData = await executeGeminiRequest({
+          contents: [{ parts: [{ text: promptText + "\n\nQUELLEN – lies diese Webseiten und nutze sie als Grundlage:\n" + urls.map(u => "- " + u).join("\n") +
+            "\n\nWICHTIG: Übernimm Zahlen (Füllmengen, Drücke, Intervalle, Normen) nur, wenn sie in diesen Seiten für GENAU dieses Fahrzeug/diesen Motor stehen. Steht ein Wert dort nicht eindeutig, schreibe \"bitte prüfen\". Antworte am Ende NUR mit dem JSON-Objekt, ohne weiteren Text." }] }],
+          tools: [{ url_context: {} }],
+          generationConfig: { temperature: 0 }
+        }, 45000, 2);
+        const parsed = safeParseJSON(extractGeminiText(resData));
+        if (!parsed.error) {
+          parsed._sources = extractUrlContextSources(resData, urls);
+          parsed._withSearch = true;
+          return parsed;
+        }
+      }
+    } catch (e) {
+      if (aiUserCancelled) throw e;
+      console.warn("Kostenlose Internetsuche fehlgeschlagen:", e);
+    }
+  }
+  // --- 2. Google-Suche von Gemini (nur bei Konten, die das erlauben) ---
   try {
+    if (lt) lt.textContent = "Versuche Google-Suche...";
     const resData = await executeGeminiRequest({
-      contents: [{ parts: [{ text: promptText + "\n\nWICHTIG: Prüfe die Angaben vorher mit der Google-Suche anhand seriöser Quellen (Hersteller, Fachportale, Teilehändler). Antworte am Ende NUR mit dem JSON-Objekt, ohne weiteren Text." }] }],
+      contents: [{ parts: [{ text: promptText + "\n\nWICHTIG: Prüfe die Angaben vorher mit der Google-Suche anhand seriöser Quellen. Antworte am Ende NUR mit dem JSON-Objekt, ohne weiteren Text." }] }],
       tools: [{ google_search: {} }],
       generationConfig: { temperature: 0 }
     }, AI_SEARCH_TIMEOUT_MS, 1);
@@ -896,10 +971,9 @@ async function callAiJsonWithSearch(promptText) {
     }
   } catch (e) {
     if (aiUserCancelled) throw e;
-    console.warn("Internetsuche nicht möglich, nutze KI-Wissen:", e);
-    const lt = document.getElementById("ai-loading-text");
-    if (lt) lt.textContent = "Internetsuche nicht möglich – frage die KI direkt...";
   }
+  // --- 3. Ohne Internet ---
+  if (lt) lt.textContent = "Internetsuche nicht möglich – frage die KI direkt...";
   const fallback = await callAiJson({
     contents: [{ parts: [{ text: promptText }] }],
     generationConfig: { responseMimeType: "application/json", temperature: 0 }
@@ -991,7 +1065,12 @@ Antworte AUSSCHLIESSLICH mit validem JSON in genau dieser Struktur (die Platzhal
   ]
 }`;
 
-  return await callAiJsonWithSearch(prompt);
+  const base = (vehCandidate.name + " " + str(vehCandidate.sub).replace(/\d{4}\s*[–-]\s*\d{4}/, "").replace(/[•|]/g, " ")).replace(/\s+/g, " ").trim();
+  return await callAiJsonWithSearch(prompt, [
+    base + " Ölmenge Liter Ölnorm",
+    vehCandidate.name + " Reifendruck Tabelle",
+    vehCandidate.name + " Wartungsintervall Zahnriemen"
+  ]);
 }
 
 async function lookupVehicleOptionA() {
@@ -1040,7 +1119,7 @@ Antworte AUSSCHLIESSLICH im validen JSON-Format:
   ]
 }`;
 
-    const parsedVariants = await callAiJsonWithSearch(variantPrompt);
+    const parsedVariants = await callAiJsonWithSearch(variantPrompt, [ (hsn && tsn) ? ("HSN " + hsn + " TSN " + tsn + " Fahrzeug") : (kbaMatch || nameField) ]);
 
     const candidates = (parsedVariants && Array.isArray(parsedVariants.candidates) && parsedVariants.candidates.length > 0)
       ? parsedVariants.candidates
@@ -1097,7 +1176,7 @@ Antworte AUSSCHLIESSLICH im validen JSON-Format:
   ]
 }`;
 
-    const parsed = await callAiJsonWithSearch(searchPrompt);
+    const parsed = await callAiJsonWithSearch(searchPrompt, [query + " technische Daten Motorisierungen PS"]);
 
     const candidates = (parsed && Array.isArray(parsed.candidates) ? parsed.candidates : [])
       .filter(c => isPlainObject(c) && str(c.name).trim())
@@ -1201,7 +1280,7 @@ function showAiPreview(p) {
 
   const srcList = Array.isArray(p._sources) ? p._sources : [];
   const header = p._withSearch
-    ? `<div style="color:var(--green); font-weight:700; margin-bottom:6px;">✅ Per KI mit Internetsuche ermittelt</div>`
+    ? `<div style="color:var(--green); font-weight:700; margin-bottom:6px;">✅ Mit Internetsuche ermittelt – Werte aus den Quellen unten</div>`
     : `<div style="color:var(--orange); font-weight:700; margin-bottom:6px;">⚠️ Ohne Internetsuche ermittelt – bitte Angaben prüfen</div>`;
   const srcHtml = srcList.length
     ? `<br><br><strong>Quellen:</strong><br>` + srcList.map(s => `<a href="${esc(s.uri)}" target="_blank" rel="noopener" style="color:var(--primary);">${esc(s.title)}</a>`).join("<br>")
